@@ -1,9 +1,8 @@
 # Slave, Vader, Wampa, Bingo
 
 An [Astrogoblin](https://www.patreon.com/c/Astrogoblin) community Wordle puzzle game.
-This is a comment scraper for Patreon creators, specifically for the [Astrogoblin crew](https://www.patreon.com/c/Astrogoblin). It was built on my own for fun and is hosted at [astrogoblincommentviewer.com](https://astrogoblincommentviewer.com)
 
-Build with node 25.2.1 & npm 11.6.2
+Build with node 25.6.0 & npm 11.8.0
 
 
 ## Setup
@@ -37,11 +36,11 @@ Place audio files in `public/sounds/`:
 
 | File | When it plays |
 |------|--------------|
-| `wrong1.mp3` (or `.wav`) | Incorrect guess #1 |
-| `wrong2.mp3` | Incorrect guess #2 |
-| `wrong3.mp3` | Incorrect guess #3 |
-| `wrong4.mp3` | Incorrect guess #4 |
-| `wrong5.mp3` | Incorrect guess #5 |
+| `try1.mp3` (or `.wav`) | Incorrect guess #1 |
+| `try2.mp3` | Incorrect guess #2 |
+| `try3.mp3` | Incorrect guess #3 |
+| `try4.mp3` | Incorrect guess #4 |
+| `try5.mp3` | Incorrect guess #5 |
 | `lose.mp3` | 6th incorrect guess (game over) |
 | `win.mp3` | Correct guess |
 

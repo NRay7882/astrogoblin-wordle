@@ -67,9 +67,9 @@
 
     // Play wrong-guess sound for guess number (1-5)
     async playWrong(guessNum) {
-      const played = await this.playFile(`/sounds/try${guessNum}.mp3`);
+      const played = await this.playFile(`/sounds/wrong${guessNum}.mp3`);
       if (played) return;
-      const played2 = await this.playFile(`/sounds/try${guessNum}.wav`);
+      const played2 = await this.playFile(`/sounds/wrong${guessNum}.wav`);
       if (played2) return;
       // Fallback: descending tone
       this.playTone(400 - (guessNum * 40), 0.3, 'square');

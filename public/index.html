@@ -14,7 +14,71 @@
       <p class="site-subtitle">An Astrogoblin Wordle</p>
     </header>
 
+    <!-- Puzzle Info --><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Slave, Vader, Wampa, Bingo – Astrogoblin Wordle</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <h1 class="site-title">Slave, Vader, Wampa, Bingo</h1>
+      <p class="site-subtitle">An Astrogoblin Wordle</p>
+    </header>
+
     <!-- Puzzle Info -->
+    <div id="puzzle-info">
+      <div id="puzzle-label">Puzzle #<span id="puzzle-number">-</span></div>
+      <div id="puzzle-clue-wrapper">
+        <span class="clue-label">CLUE:</span>
+        <span id="puzzle-clue">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Toast / message area -->
+    <div id="toast-container"></div>
+
+    <!-- Game Board -->
+    <div id="board-container">
+      <div id="board"></div>
+    </div>
+
+    <!-- Result area (shown after win/lose) -->
+    <div id="result-area" class="hidden">
+      <div id="result-message"></div>
+      <button id="reveal-btn" class="btn btn-reveal hidden">Reveal Answer</button>
+      <div id="revealed-answer" class="hidden"></div>
+      <button id="play-previous-btn" class="btn btn-secondary hidden">Play Previous Puzzles ↓</button>
+    </div>
+
+    <!-- On-Screen Keyboard -->
+    <div id="keyboard-container">
+      <div class="keyboard-row" id="kb-row-nums"></div>
+      <div class="keyboard-row" id="kb-row-top"></div>
+      <div class="keyboard-row" id="kb-row-mid"></div>
+      <div class="keyboard-row" id="kb-row-bot"></div>
+    </div>
+
+    <!-- Countdown Timer -->
+    <div id="timer-container">
+      <span class="timer-label">Next puzzle in:</span>
+      <span id="countdown">--:--:--</span>
+    </div>
+
+    <!-- Previous Puzzles Navigation -->
+    <div id="puzzles-nav">
+      <h2>Previous Puzzles</h2>
+      <div id="puzzles-list"></div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
     <div id="puzzle-info">
       <div id="puzzle-label">Puzzle #<span id="puzzle-number">-</span></div>
       <div id="puzzle-clue-wrapper">
