@@ -2,31 +2,31 @@
 
 An [Astrogoblin](https://www.patreon.com/c/Astrogoblin) community Wordle puzzle game.
 
-Build with node 25.6.0 & npm 11.8.0
+Built with Node 25.6.0 & npm 11.8.0
 
 
 ## Setup
 
 1. Install dependencies:
-   ```bash
+```bash
    npm install
-   ```
+```
 
 2. Copy `.env.example` to `.env` and add your puzzle data:
-   ```bash
+```bash
    cp .env.example .env
-   ```
+```
 
 3. Edit `.env` with your puzzles in the format:
-   ```
-   PUZZLE_001=ANSWER|Clue text here
-   PUZZLE_002=WORD2|Another clue
-   ```
+```
+   PUZZLE_20260301=ANSWER|Clue text here
+   PUZZLE_20260302=WORD2|Another clue
+```
 
 4. Start the server:
-   ```bash
+```bash
    npm start
-   ```
+```
 
 5. Open `http://localhost:3000` in your browser.
 
@@ -51,8 +51,7 @@ If no custom sounds are found, generated tones will play as fallback.
 1. Push code to GitHub (`.env` and sound files are gitignored)
 2. Create a new Web Service on Render pointing to the repo
 3. Set environment variables in Render's dashboard:
-   - `START_DATE` 
-   - `PUZZLE_001`, `PUZZLE_002`, etc.
+   - `PUZZLE_20260301`, `PUZZLE_20260302`, etc.
    - `PORT` (Render sets this automatically)
 4. Build command: `npm install`
 5. Start command: `npm start`
@@ -64,4 +63,5 @@ If no custom sounds are found, generated tones will play as fallback.
 - Green = correct letter, correct position
 - Yellow = correct letter, wrong position
 - Gray = letter not in the word
+- Clue available after the 3rd guess
 - New puzzle available daily at midnight Eastern Time

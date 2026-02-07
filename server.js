@@ -13,13 +13,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Format: PUZZLE_001=ANSWER|Clue text here
 // ---------------------------------------------------------------------------
 function loadPuzzles() {
-  const puzzles = [];
+  const puzzleMap = {}; // date string 'YYYY-MM-DD' -> { id, answer, clue, date }
   const keys = Object.keys(process.env)
-    .filter(k => /^PUZZLE_\d+$/.test(k))
+    .filter(k => /^PUZZLE_\d{8}$/.test(k))
     .sort();
 
   for (const key of keys) {
-    const id = key.replace('PUZZLE_', '');
+    const dateRaw = key.replace('PUZZLE_', '');
+    const dateStr = `${dateRaw.slice(0,4)}-${dateRaw.slice(4,6)}-${dateRaw.slice(6,8)}`;
     const value = process.env[key];
     const pipeIndex = value.indexOf('|');
     if (pipeIndex === -1) {
@@ -38,15 +39,33 @@ function loadPuzzles() {
       continue;
     }
 
-    puzzles.push({ id, answer, clue });
+    puzzleMap[dateStr] = { id: dateRaw, answer, clue, date: dateStr };
   }
 
-  console.log(`Loaded ${puzzles.length} puzzles`);
-  return puzzles;
+  console.log(`Loaded ${Object.keys(puzzleMap).length} puzzles`);
+  return puzzleMap;
+}
+
+// Get sorted array of available puzzle dates up to today (Eastern)
+function getAvailablePuzzleDates() {
+  const today = getEasternDateString();
+  return Object.keys(PUZZLES)
+    .filter(d => d <= today)
+    .sort();
+}
+
+// Get puzzle number (1-indexed) for a given date
+function getPuzzleNumberForDate(dateStr) {
+  const allDates = Object.keys(PUZZLES).sort();
+  return allDates.indexOf(dateStr) + 1;
+}
+
+// Get total number of puzzles defined
+function getTotalPuzzleCount() {
+  return Object.keys(PUZZLES).length;
 }
 
 const PUZZLES = loadPuzzles();
-const START_DATE = process.env.START_DATE || '2026-02-01';
 
 // ---------------------------------------------------------------------------
 // Eastern‑time helpers (respects DST via Intl)
@@ -64,37 +83,20 @@ function getEasternDateString() {
 }
 
 function getNextMidnightEasternUTC() {
+  // Get the current time expressed in Eastern
   const now = new Date();
-  const easternNow = new Date(
-    now.toLocaleString('en-US', { timeZone: 'America/New_York' })
-  );
-  const utcNow = new Date(
-    now.toLocaleString('en-US', { timeZone: 'UTC' })
-  );
-  const offsetMs = utcNow.getTime() - easternNow.getTime();
+  const easternStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const easternNow = new Date(easternStr);
 
-  const nextMidnight = new Date(easternNow);
-  nextMidnight.setHours(24, 0, 0, 0);
+  // Build next midnight in Eastern
+  const nextMidnightEastern = new Date(easternNow);
+  nextMidnightEastern.setHours(24, 0, 0, 0);
 
-  return new Date(nextMidnight.getTime() + offsetMs);
-}
+  // Difference in ms between real now and eastern now gives us the offset
+  const offsetMs = now.getTime() - easternNow.getTime();
 
-function dateDiffDays(dateStrA, dateStrB) {
-  const a = new Date(dateStrA + 'T00:00:00');
-  const b = new Date(dateStrB + 'T00:00:00');
-  return Math.floor((b - a) / (1000 * 60 * 60 * 24));
-}
-
-function getCurrentPuzzleNumber() {
-  const today = getEasternDateString();
-  const diff = dateDiffDays(START_DATE, today);
-  return Math.max(0, diff);
-}
-
-function getPuzzleDateString(puzzleIndex) {
-  const start = new Date(START_DATE + 'T00:00:00');
-  start.setDate(start.getDate() + puzzleIndex);
-  return start.toISOString().slice(0, 10);
+  // Apply the offset to get next midnight in real UTC
+  return new Date(nextMidnightEastern.getTime() + offsetMs);
 }
 
 // ---------------------------------------------------------------------------
@@ -135,54 +137,52 @@ function checkGuess(guess, answer) {
 
 // GET /api/today – current puzzle info (no answer)
 app.get('/api/today', (req, res) => {
-  const puzzleIndex = getCurrentPuzzleNumber();
-  const totalAvailable = Math.min(puzzleIndex + 1, PUZZLES.length);
+  const today = getEasternDateString();
+  const available = getAvailablePuzzleDates();
 
-  if (puzzleIndex < 0 || PUZZLES.length === 0) {
+  if (available.length === 0) {
     return res.json({
       active: false,
       message: 'No puzzles available yet. Check back soon!',
       nextPuzzleTime: getNextMidnightEasternUTC().toISOString(),
       totalAvailable: 0,
-      totalPuzzles: PUZZLES.length
+      totalPuzzles: getTotalPuzzleCount()
     });
   }
 
-  const currentIndex = Math.min(puzzleIndex, PUZZLES.length - 1);
-  const puzzle = PUZZLES[currentIndex];
-  const allSolved = puzzleIndex >= PUZZLES.length;
+  const todayDate = available.includes(today) ? today : available[available.length - 1];
+  const puzzle = PUZZLES[todayDate];
 
   res.json({
-    active: !allSolved,
-    puzzleNumber: currentIndex + 1,
+    active: true,
+    puzzleNumber: getPuzzleNumberForDate(todayDate),
     puzzleId: puzzle.id,
     clue: puzzle.clue,
-    date: getPuzzleDateString(currentIndex),
-    totalAvailable,
-    totalPuzzles: PUZZLES.length,
-    nextPuzzleTime: getNextMidnightEasternUTC().toISOString(),
-    allSolved
+    date: puzzle.date,
+    totalAvailable: available.length,
+    totalPuzzles: getTotalPuzzleCount(),
+    nextPuzzleTime: getNextMidnightEasternUTC().toISOString()
   });
 });
 
-// GET /api/puzzle/:puzzleNumber – specific puzzle info (1‑indexed)
-app.get('/api/puzzle/:puzzleNumber', (req, res) => {
-  const num = parseInt(req.params.puzzleNumber, 10);
-  if (isNaN(num) || num < 1 || num > PUZZLES.length) {
+// GET /api/puzzle/:puzzleId – specific puzzle info by date-based id (YYYYMMDD)
+app.get('/api/puzzle/:puzzleId', (req, res) => {
+  const id = req.params.puzzleId;
+  const puzzle = Object.values(PUZZLES).find(p => p.id === id);
+  if (!puzzle) {
     return res.status(404).json({ error: 'Puzzle not found' });
   }
 
-  const maxAvailable = getCurrentPuzzleNumber() + 1;
-  if (num > maxAvailable) {
+  const today = getEasternDateString();
+  if (puzzle.date > today) {
     return res.status(403).json({ error: 'This puzzle is not available yet' });
   }
 
-  const puzzle = PUZZLES[num - 1];
   res.json({
-    puzzleNumber: num,
+    puzzleNumber: getPuzzleNumberForDate(puzzle.date),
     puzzleId: puzzle.id,
     clue: puzzle.clue,
-    date: getPuzzleDateString(num - 1)
+    date: puzzle.date
   });
 });
 
@@ -199,15 +199,13 @@ app.post('/api/guess', (req, res) => {
     return res.status(400).json({ error: 'Guess must be 5 characters (A-Z, 0-9, -)' });
   }
 
-  const puzzle = PUZZLES.find(p => p.id === puzzleId);
+  const puzzle = Object.values(PUZZLES).find(p => p.id === puzzleId);
   if (!puzzle) {
     return res.status(404).json({ error: 'Puzzle not found' });
   }
 
-  // Verify this puzzle is actually available
-  const puzzleIndex = PUZZLES.indexOf(puzzle);
-  const maxAvailable = getCurrentPuzzleNumber() + 1;
-  if (puzzleIndex + 1 > maxAvailable) {
+  const today = getEasternDateString();
+  if (puzzle.date > today) {
     return res.status(403).json({ error: 'This puzzle is not available yet' });
   }
 
@@ -219,30 +217,31 @@ app.post('/api/guess', (req, res) => {
 
 // GET /api/puzzles/list – all available puzzles (no answers)
 app.get('/api/puzzles/list', (req, res) => {
-  const maxAvailable = Math.min(getCurrentPuzzleNumber() + 1, PUZZLES.length);
-  const list = PUZZLES.slice(0, maxAvailable).map((p, i) => ({
-    puzzleNumber: i + 1,
-    puzzleId: p.id,
-    clue: p.clue,
-    date: getPuzzleDateString(i)
-  }));
+  const available = getAvailablePuzzleDates();
+  const list = available.map(dateStr => {
+    const p = PUZZLES[dateStr];
+    return {
+      puzzleNumber: getPuzzleNumberForDate(dateStr),
+      puzzleId: p.id,
+      clue: p.clue,
+      date: p.date
+    };
+  });
 
   res.json({
     puzzles: list,
-    totalPuzzles: PUZZLES.length,
+    totalPuzzles: getTotalPuzzleCount(),
     nextPuzzleTime: getNextMidnightEasternUTC().toISOString()
   });
 });
 
-// GET /api/reveal/:puzzleId – reveal the answer (only if user has used all 6 guesses)
+// POST /api/reveal – reveal the answer
 app.post('/api/reveal', (req, res) => {
   const { puzzleId } = req.body;
-  const puzzle = PUZZLES.find(p => p.id === puzzleId);
+  const puzzle = Object.values(PUZZLES).find(p => p.id === puzzleId);
   if (!puzzle) {
     return res.status(404).json({ error: 'Puzzle not found' });
   }
-  // Trust is on the client here; server reveals answer on request
-  // since there's no auth to track guess count server-side
   res.json({ answer: puzzle.answer });
 });
 
@@ -256,8 +255,7 @@ app.get('*', (req, res) => {
 // ---------------------------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`Slave, Vader, Wampa, Bingo running on port ${PORT}`);
-  console.log(`Start date: ${START_DATE}`);
   console.log(`Current Eastern date: ${getEasternDateString()}`);
-  console.log(`Current puzzle number: ${getCurrentPuzzleNumber() + 1}`);
+  console.log(`Available puzzles today: ${getAvailablePuzzleDates().length} of ${getTotalPuzzleCount()}`);
   console.log(`Next puzzle at: ${getNextMidnightEasternUTC().toISOString()}`);
 });

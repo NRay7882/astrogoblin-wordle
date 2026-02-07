@@ -96,6 +96,30 @@ html, body {
   font-size: 0.8rem;
 }
 
+.btn-clue {
+  background: var(--bg-secondary);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.btn-clue:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+#clue-text {
+  display: inline-block;
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-left: 10px;
+}
+#clue-text.hidden { display: none; }
+
 /* ---- Toast ---- */
 #toast-container {
   position: fixed;
@@ -285,15 +309,15 @@ html, body {
 }
 
 .key {
-  height: 52px;
-  min-width: 30px;
-  padding: 0 8px;
+  height: 56px;
+  min-width: 34px;
+  padding: 0 10px;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--key-bg);
   color: var(--key-text);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -302,14 +326,16 @@ html, body {
   transition: background 0.15s, color 0.15s;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.5px;
 }
 
 .key:active { opacity: 0.7; }
 
 .key.wide {
-  min-width: 60px;
-  font-size: 0.75rem;
+  min-width: 65px;
+  font-size: 0.82rem;
   background: var(--key-special);
+  letter-spacing: 1px;
 }
 
 .key.absent  { background: #3a3a3c; color: #666; }
@@ -444,15 +470,15 @@ html, body {
     height: 52px;
     font-size: 1.5rem;
   }
-  .key {
-    height: 46px;
-    min-width: 25px;
-    padding: 0 5px;
-    font-size: 0.75rem;
+.key {
+    height: 50px;
+    min-width: 28px;
+    padding: 0 6px;
+    font-size: 0.85rem;
   }
   .key.wide {
-    min-width: 50px;
-    font-size: 0.65rem;
+    min-width: 54px;
+    font-size: 0.72rem;
   }
   .site-title {
     font-size: 1.1rem;
