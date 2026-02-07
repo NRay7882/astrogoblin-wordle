@@ -470,7 +470,7 @@ html, body {
     height: 52px;
     font-size: 1.5rem;
   }
-.key {
+  .key {
     height: 50px;
     min-width: 28px;
     padding: 0 6px;

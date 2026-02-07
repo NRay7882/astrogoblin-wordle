@@ -15,7 +15,7 @@
     ['1','2','3','4','5','6','7','8','9','0','-'],
     ['Q','W','E','R','T','Y','U','I','O','P'],
     ['A','S','D','F','G','H','J','K','L'],
-    ['SUBMIT','Z','X','C','V','B','N','M','DEL']
+    ['DEL','Z','X','C','V','B','N','M','SUBMIT']
   ];
 
   // ---- Sound System ----
@@ -67,9 +67,9 @@
 
     // Play wrong-guess sound for guess number (1-5)
     async playWrong(guessNum) {
-      const played = await this.playFile(`/sounds/wrong${guessNum}.mp3`);
+      const played = await this.playFile(`/sounds/try${guessNum}.mp3`);
       if (played) return;
-      const played2 = await this.playFile(`/sounds/wrong${guessNum}.wav`);
+      const played2 = await this.playFile(`/sounds/try${guessNum}.wav`);
       if (played2) return;
       // Fallback: descending tone
       this.playTone(400 - (guessNum * 40), 0.3, 'square');
@@ -111,11 +111,10 @@
   let countdownInterval = null;
   let allPuzzlesList = [];     // From /api/puzzles/list
 
-  // ---- DOM refs ----
+	// ---- DOM refs ----
   const boardEl = document.getElementById('board');
   const toastContainer = document.getElementById('toast-container');
   const puzzleNumberEl = document.getElementById('puzzle-number');
-  const puzzleClueEl = document.getElementById('puzzle-clue');
   const resultArea = document.getElementById('result-area');
   const resultMessage = document.getElementById('result-message');
   const revealBtn = document.getElementById('reveal-btn');
@@ -123,6 +122,9 @@
   const playPrevBtn = document.getElementById('play-previous-btn');
   const countdownEl = document.getElementById('countdown');
   const puzzlesListEl = document.getElementById('puzzles-list');
+  const clueBtn = document.getElementById('clue-btn');
+  const clueText = document.getElementById('clue-text');
+  let clueRevealed = false;
 
   // ---- LocalStorage helpers ----
   function loadState() {
@@ -193,26 +195,29 @@
     if (status) tile.classList.add(status);
   }
 
-  // Animate reveal of a row
+  // Animate reveal of a row – all tiles flip simultaneously
   function revealRow(row, result, callback) {
     isRevealing = true;
-    result.forEach((item, i) => {
-      setTimeout(() => {
-        const tile = getTile(row, i);
-        tile.classList.add('reveal');
-        // Apply color halfway through flip
-        setTimeout(() => {
-          setTileStatus(row, i, item.status);
-          updateKeyboardKey(item.letter, item.status);
-        }, 150);
-        if (i === WORD_LENGTH - 1) {
-          setTimeout(() => {
-            isRevealing = false;
-            if (callback) callback();
-          }, 300);
-        }
-      }, i * 300);
-    });
+
+    // Start all flips at the same time
+    for (let i = 0; i < WORD_LENGTH; i++) {
+      const tile = getTile(row, i);
+      tile.classList.add('reveal');
+    }
+
+    // Apply colors at the halfway point of the flip (150ms)
+    setTimeout(() => {
+      for (let i = 0; i < WORD_LENGTH; i++) {
+        setTileStatus(row, i, result[i].status);
+        updateKeyboardKey(result[i].letter, result[i].status);
+      }
+    }, 150);
+
+    // Animation done at 300ms
+    setTimeout(() => {
+      isRevealing = false;
+      if (callback) callback();
+    }, 300);
   }
 
   // Win bounce animation
@@ -378,6 +383,7 @@
           currentRow++;
           currentGuess = '';
           saveState();
+          updateClueVisibility();
         }
       });
 
@@ -443,6 +449,33 @@
   playPrevBtn.addEventListener('click', () => {
     document.getElementById('puzzles-nav').scrollIntoView({ behavior: 'smooth' });
   });
+
+  // Clue button toggle
+  clueBtn.addEventListener('click', () => {
+    clueRevealed = !clueRevealed;
+    if (clueRevealed) {
+      clueText.classList.remove('hidden');
+      clueBtn.textContent = 'Hide Clue';
+    } else {
+      clueText.classList.add('hidden');
+      clueBtn.textContent = 'Show Clue';
+    }
+  });
+
+  // Show/hide clue button based on guess count (visible after 3rd guess or game over)
+  function updateClueVisibility() {
+    const pState = currentPuzzle ? getPuzzleState(currentPuzzle.puzzleId) : null;
+    const guessCount = pState ? pState.guesses.length : 0;
+    const isFinished = pState && (pState.status === 'won' || pState.status === 'lost');
+    if (guessCount >= 3 || isFinished) {
+      clueBtn.classList.remove('hidden');
+    } else {
+      clueBtn.classList.add('hidden');
+      clueText.classList.add('hidden');
+      clueRevealed = false;
+      clueBtn.textContent = 'Show Clue';
+    }
+  }
 
   // ---- Countdown Timer ----
   function startCountdown() {
@@ -522,15 +555,15 @@
         </div>
       `;
 
-      item.addEventListener('click', () => loadPuzzle(p.puzzleNumber));
+      item.addEventListener('click', () => loadPuzzle(p.puzzleId));
       puzzlesListEl.appendChild(item);
     });
   }
 
   // ---- Load a Puzzle ----
-  async function loadPuzzle(puzzleNumber) {
+  async function loadPuzzle(puzzleId) {
     try {
-      const res = await fetch(`/api/puzzle/${puzzleNumber}`);
+      const res = await fetch(`/api/puzzle/${puzzleId}`);
       if (!res.ok) {
         const err = await res.json();
         showToast(err.error || 'Cannot load puzzle');
@@ -540,7 +573,12 @@
 
       currentPuzzle = data;
       puzzleNumberEl.textContent = data.puzzleNumber;
-      puzzleClueEl.textContent = data.clue;
+
+      // Set clue text but keep hidden until conditions met
+      clueText.textContent = data.clue;
+      clueText.classList.add('hidden');
+      clueRevealed = false;
+      clueBtn.textContent = 'Show Clue';
 
       // Reset UI
       createBoard();
@@ -568,6 +606,9 @@
         showResult('lost');
       }
 
+      // Update clue button visibility
+      updateClueVisibility();
+
       // Refresh nav highlighting
       renderPuzzlesList();
 
@@ -593,18 +634,18 @@
       nextPuzzleTime = data.nextPuzzleTime;
 
       if (!data.active && data.totalAvailable === 0) {
-        puzzleClueEl.textContent = data.message || 'No puzzles available yet.';
+        showToast(data.message || 'No puzzles available yet.', 5000);
         startCountdown();
         return;
       }
 
       await refreshPuzzlesList();
-      await loadPuzzle(data.puzzleNumber);
+      await loadPuzzle(data.puzzleId);
       startCountdown();
 
     } catch (err) {
       console.error('Init error:', err);
-      puzzleClueEl.textContent = 'Error loading puzzle. Please refresh.';
+      showToast('Error loading puzzle. Please refresh.', 5000);
     }
   }
 
