@@ -34,14 +34,15 @@
     },
 
     // Try to play an audio file; return false if not found
-    async playFile(path) {
+    async playFile(filePath) {
+      if (isMuted) return true; // pretend it played so fallback tones don't fire
       try {
-        if (!this.cache[path]) {
-          const res = await fetch(path, { method: 'HEAD' });
+        if (!this.cache[filePath]) {
+          const res = await fetch(filePath, { method: 'HEAD' });
           if (!res.ok) return false;
-          this.cache[path] = true;
+          this.cache[filePath] = true;
         }
-        const audio = new Audio(path);
+        const audio = new Audio(filePath);
         audio.volume = 0.5;
         await audio.play();
         return true;
@@ -52,6 +53,7 @@
 
     // Fallback tone via Web Audio API
     playTone(freq, duration, type = 'square') {
+      if (isMuted) return;
       this.ensureCtx();
       if (!this.ctx) return;
       const osc = this.ctx.createOscillator();
@@ -127,6 +129,25 @@
   const answerImageContainer = document.getElementById('answer-image-container');
   const answerImage = document.getElementById('answer-image');
   let clueRevealed = false;
+  const muteBtn = document.getElementById('mute-btn');
+  let isMuted = localStorage.getItem('svwb_muted') === 'true';
+
+  // Initialize mute state
+  function updateMuteButton() {
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    if (isMuted) {
+      muteBtn.classList.add('muted');
+    } else {
+      muteBtn.classList.remove('muted');
+    }
+  }
+  updateMuteButton();
+
+  muteBtn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    localStorage.setItem('svwb_muted', isMuted);
+    updateMuteButton();
+  });
 
   // ---- LocalStorage helpers ----
   function loadState() {
@@ -151,27 +172,22 @@
   }
 
   // ---- Answer Image ----
-  const IMG_EXTENSIONS = ['png', 'jpg', 'gif', 'webp'];
-
   async function tryShowAnswerImage(puzzleId) {
     answerImageContainer.classList.add('hidden');
     answerImage.src = '';
     answerImage.alt = '';
-    for (const ext of IMG_EXTENSIONS) {
-      const url = `/images/answers/${puzzleId}.${ext}`;
-      try {
-        const res = await fetch(url, { method: 'HEAD' });
-        if (res.ok && res.headers.get('content-type')?.startsWith('image/')) {
-          answerImage.onerror = () => {
-            answerImageContainer.classList.add('hidden');
-          };
-          answerImage.src = url;
-          answerImage.alt = '';
-          answerImageContainer.classList.remove('hidden');
-          return;
-        }
-      } catch {}
-    }
+    const url = `/api/answer-image/${puzzleId}`;
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok && res.headers.get('content-type')?.startsWith('image/')) {
+        answerImage.onerror = () => {
+          answerImageContainer.classList.add('hidden');
+        };
+        answerImage.src = url;
+        answerImage.alt = '';
+        answerImageContainer.classList.remove('hidden');
+      }
+    } catch {}
   }
 
   // ---- Toast ----

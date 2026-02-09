@@ -6,6 +6,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Block direct static access to answer images
+app.use('/images/answers', (req, res, next) => {
+  res.status(403).json({ error: 'Access denied' });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
@@ -255,6 +261,73 @@ app.post('/api/reveal', (req, res) => {
     return res.status(404).json({ error: 'Puzzle not found' });
   }
   res.json({ answer: puzzle.answer });
+});
+
+// GET /api/answer-image/:puzzleId – serve answer image only for completed puzzles
+const imageCache = new Map(); // puzzleId -> { buffer, contentType } or null
+
+app.get('/api/answer-image/:puzzleId', async (req, res) => {
+  const id = req.params.puzzleId;
+  const puzzle = Object.values(PUZZLES).find(p => p.id === id);
+  if (!puzzle) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const today = getEasternDateString();
+  if (puzzle.date > today) {
+    return res.status(403).json({ error: 'Not available yet' });
+  }
+
+  // Check memory cache first
+  if (imageCache.has(id)) {
+    const cached = imageCache.get(id);
+    if (!cached) return res.status(404).json({ error: 'No image available' });
+    res.set('Content-Type', cached.contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(cached.buffer);
+  }
+
+  // Try local file first (for local development)
+  const fs = require('fs');
+  const extensions = ['png', 'jpg', 'gif', 'webp'];
+  const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+
+  for (const ext of extensions) {
+    const filePath = path.join(__dirname, 'public', 'images', 'answers', `${id}.${ext}`);
+    if (fs.existsSync(filePath)) {
+      const buffer = fs.readFileSync(filePath);
+      imageCache.set(id, { buffer, contentType: mimeTypes[ext] });
+      res.set('Content-Type', mimeTypes[ext]);
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.send(buffer);
+    }
+  }
+
+  // Try GitHub private repo
+  const token = process.env.GITHUB_ASSETS_TOKEN;
+  const repo = process.env.GITHUB_ASSETS_REPO;
+  if (token && repo) {
+    for (const ext of extensions) {
+      try {
+        const url = `https://raw.githubusercontent.com/${repo}/main/answers/${id}.${ext}`;
+        const ghRes = await fetch(url, {
+          headers: { 'Authorization': `token ${token}` }
+        });
+        if (ghRes.ok) {
+          const arrayBuffer = await ghRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          imageCache.set(id, { buffer, contentType: mimeTypes[ext] });
+          res.set('Content-Type', mimeTypes[ext]);
+          res.set('Cache-Control', 'public, max-age=86400');
+          return res.send(buffer);
+        }
+      } catch {}
+    }
+  }
+
+  // Nothing found — cache the miss too
+  imageCache.set(id, null);
+  res.status(404).json({ error: 'No image available' });
 });
 
 // Fallback: serve index.html for all other routes

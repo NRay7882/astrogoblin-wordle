@@ -51,6 +51,8 @@ html, body {
   border-bottom: 1px solid var(--tile-border);
   width: 100%;
   margin-bottom: 10px;
+  position: relative;
+}
 }
 
 .site-title {
@@ -65,6 +67,34 @@ html, body {
   font-size: 0.78rem;
   color: var(--text-dim);
   margin-top: 2px;
+}
+
+/* ---- Mute Button ---- */
+#mute-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: 1px solid var(--tile-border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 1.3rem;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+#mute-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+#mute-btn.muted {
+  color: var(--red);
+  border-color: var(--red);
 }
 
 /* ---- Puzzle Info ---- */
@@ -137,10 +167,12 @@ html, body {
 #answer-image-container.hidden { display: none; }
 
 #answer-image {
-  max-width: 280px;
-  max-height: 200px;
+  max-height: 400px;
+  width: auto;
+  max-width: 100%;
   border-radius: 8px;
   border: 2px solid var(--tile-border);
+}
 }
 
 /* ---- Toast ---- */
