@@ -19,10 +19,11 @@
   ];
 
   // ---- Sound System ----
-  // Tries to load custom audio files; falls back to Web Audio API tones
+  // Preloads sounds progressively to eliminate network delay
   const SoundManager = {
     ctx: null,
-    cache: {},
+    preloaded: {},  // path -> Audio element (ready to play)
+    failed: {},     // path -> true (known missing files)
 
     init() {
       try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -33,18 +34,73 @@
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     },
 
-    // Try to play an audio file; return false if not found
-    async playFile(filePath) {
-      if (isMuted) return true; // pretend it played so fallback tones don't fire
-      try {
-        if (!this.cache[filePath]) {
-          const res = await fetch(filePath, { method: 'HEAD' });
-          if (!res.ok) return false;
-          this.cache[filePath] = true;
+    // Preload a sound file into memory, returns a promise
+    preload(filePath) {
+      if (this.preloaded[filePath] || this.failed[filePath]) return Promise.resolve();
+      return new Promise((resolve) => {
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.addEventListener('canplaythrough', () => {
+          this.preloaded[filePath] = audio;
+          resolve();
+        }, { once: true });
+        audio.addEventListener('error', () => {
+          this.failed[filePath] = true;
+          resolve();
+        }, { once: true });
+        audio.src = filePath;
+        audio.load();
+      });
+    },
+
+    // Preload the sounds needed for a specific guess number (1-6)
+    async preloadForGuess(guessNum) {
+      if (guessNum <= 5) {
+        await this.preload(`/sounds/try${guessNum}.mp3`);
+        if (this.failed[`/sounds/try${guessNum}.mp3`]) {
+          await this.preload(`/sounds/try${guessNum}.wav`);
         }
-        const audio = new Audio(filePath);
-        audio.volume = 0.5;
-        await audio.play();
+      }
+      // Always preload win/lose in the background
+      this.preload('/sounds/win.mp3').then(() => {
+        if (this.failed['/sounds/win.mp3']) this.preload('/sounds/win.wav');
+      });
+      this.preload('/sounds/lose.mp3').then(() => {
+        if (this.failed['/sounds/lose.mp3']) this.preload('/sounds/lose.wav');
+      });
+    },
+
+    // Preload the next round of sounds after a guess
+    preloadNext(guessNum) {
+      // Preload the next try sound
+      if (guessNum < 5) {
+        this.preload(`/sounds/try${guessNum + 1}.mp3`).then(() => {
+          if (this.failed[`/sounds/try${guessNum + 1}.mp3`]) {
+            this.preload(`/sounds/try${guessNum + 1}.wav`);
+          }
+        });
+      }
+      // Preload win/lose after guess 3+
+      if (guessNum >= 3) {
+        this.preload('/sounds/win.mp3').then(() => {
+          if (this.failed['/sounds/win.mp3']) this.preload('/sounds/win.wav');
+        });
+        this.preload('/sounds/lose.mp3').then(() => {
+          if (this.failed['/sounds/lose.mp3']) this.preload('/sounds/lose.wav');
+        });
+      }
+    },
+
+    // Play a preloaded sound, returns true if played
+    playPreloaded(filePath) {
+      if (isMuted) return true;
+      const audio = this.preloaded[filePath];
+      if (!audio) return false;
+      try {
+        // Clone the audio so the original stays cached for replay
+        const clone = audio.cloneNode();
+        clone.volume = 0.5;
+        clone.play();
         return true;
       } catch {
         return false;
@@ -67,38 +123,32 @@
       osc.stop(this.ctx.currentTime + duration);
     },
 
-    // Play wrong-guess sound for guess number (1-5)
-    async playWrong(guessNum) {
-      const played = await this.playFile(`/sounds/try${guessNum}.mp3`);
-      if (played) return;
-      const played2 = await this.playFile(`/sounds/try${guessNum}.wav`);
-      if (played2) return;
-      // Fallback: descending tone
-      this.playTone(400 - (guessNum * 40), 0.3, 'square');
+    playWrong(guessNum) {
+      let played = this.playPreloaded(`/sounds/try${guessNum}.mp3`);
+      if (!played) played = this.playPreloaded(`/sounds/try${guessNum}.wav`);
+      if (!played) this.playTone(400 - (guessNum * 40), 0.3, 'square');
+      // Preload the next sounds
+      this.preloadNext(guessNum);
     },
 
-    // Play lose sound (6th wrong guess)
-    async playLose() {
-      let played = await this.playFile('/sounds/lose.mp3');
-      if (played) return;
-      played = await this.playFile('/sounds/lose.wav');
-      if (played) return;
-      // Fallback: sad descending tones
-      this.playTone(300, 0.2); 
-      setTimeout(() => this.playTone(200, 0.4), 200);
+    playLose() {
+      let played = this.playPreloaded('/sounds/lose.mp3');
+      if (!played) played = this.playPreloaded('/sounds/lose.wav');
+      if (!played) {
+        this.playTone(300, 0.2);
+        setTimeout(() => this.playTone(200, 0.4), 200);
+      }
     },
 
-    // Play win sound
-    async playWin() {
-      let played = await this.playFile('/sounds/win.mp3');
-      if (played) return;
-      played = await this.playFile('/sounds/win.wav');
-      if (played) return;
-      // Fallback: happy ascending tones
-      this.playTone(440, 0.15, 'sine');
-      setTimeout(() => this.playTone(554, 0.15, 'sine'), 150);
-      setTimeout(() => this.playTone(659, 0.15, 'sine'), 300);
-      setTimeout(() => this.playTone(880, 0.3, 'sine'), 450);
+    playWin() {
+      let played = this.playPreloaded('/sounds/win.mp3');
+      if (!played) played = this.playPreloaded('/sounds/win.wav');
+      if (!played) {
+        this.playTone(440, 0.15, 'sine');
+        setTimeout(() => this.playTone(554, 0.15, 'sine'), 150);
+        setTimeout(() => this.playTone(659, 0.15, 'sine'), 300);
+        setTimeout(() => this.playTone(880, 0.3, 'sine'), 450);
+      }
     }
   };
 
@@ -658,6 +708,9 @@
 
       // Update clue button visibility
       updateClueVisibility();
+
+      // Preload sounds for the next guess
+      SoundManager.preloadForGuess(currentRow + 1);
 
       // Refresh nav highlighting
       renderPuzzlesList();
