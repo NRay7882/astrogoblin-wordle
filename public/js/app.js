@@ -485,7 +485,11 @@
   }
 
   function updateCountdown() {
-    if (!nextPuzzleTime) { countdownEl.textContent = '--:--:--'; return; }
+    if (!nextPuzzleTime) {
+      document.getElementById('timer-container').style.display = 'none';
+      return;
+    }
+    document.getElementById('timer-container').style.display = '';
     const now = Date.now();
     const target = new Date(nextPuzzleTime).getTime();
     let diff = Math.max(0, target - now);

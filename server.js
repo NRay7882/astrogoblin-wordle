@@ -153,6 +153,11 @@ app.get('/api/today', (req, res) => {
   const todayDate = available.includes(today) ? today : available[available.length - 1];
   const puzzle = PUZZLES[todayDate];
 
+  // Check for future puzzles for next day
+  const allDates = Object.keys(PUZZLES).sort();
+  const lastPuzzleDate = allDates[allDates.length - 1];
+  const hasMorePuzzles = today < lastPuzzleDate;
+
   res.json({
     active: true,
     puzzleNumber: getPuzzleNumberForDate(todayDate),
@@ -161,7 +166,8 @@ app.get('/api/today', (req, res) => {
     date: puzzle.date,
     totalAvailable: available.length,
     totalPuzzles: getTotalPuzzleCount(),
-    nextPuzzleTime: getNextMidnightEasternUTC().toISOString()
+    nextPuzzleTime: hasMorePuzzles ? getNextMidnightEasternUTC().toISOString() : null,
+    hasMorePuzzles
   });
 });
 
@@ -228,10 +234,16 @@ app.get('/api/puzzles/list', (req, res) => {
     };
   });
 
+  const today = getEasternDateString();
+  const allDates = Object.keys(PUZZLES).sort();
+  const lastPuzzleDate = allDates[allDates.length - 1];
+  const hasMorePuzzles = today < lastPuzzleDate;
+
   res.json({
     puzzles: list,
     totalPuzzles: getTotalPuzzleCount(),
-    nextPuzzleTime: getNextMidnightEasternUTC().toISOString()
+    nextPuzzleTime: hasMorePuzzles ? getNextMidnightEasternUTC().toISOString() : null,
+    hasMorePuzzles
   });
 });
 
