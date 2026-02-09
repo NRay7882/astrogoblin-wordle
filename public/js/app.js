@@ -124,6 +124,8 @@
   const puzzlesListEl = document.getElementById('puzzles-list');
   const clueBtn = document.getElementById('clue-btn');
   const clueText = document.getElementById('clue-text');
+  const answerImageContainer = document.getElementById('answer-image-container');
+  const answerImage = document.getElementById('answer-image');
   let clueRevealed = false;
 
   // ---- LocalStorage helpers ----
@@ -146,6 +148,30 @@
       };
     }
     return gameState[puzzleId];
+  }
+
+  // ---- Answer Image ----
+  const IMG_EXTENSIONS = ['png', 'jpg', 'gif', 'webp'];
+
+  async function tryShowAnswerImage(puzzleId) {
+    answerImageContainer.classList.add('hidden');
+    answerImage.src = '';
+    answerImage.alt = '';
+    for (const ext of IMG_EXTENSIONS) {
+      const url = `/images/answers/${puzzleId}.${ext}`;
+      try {
+        const res = await fetch(url, { method: 'HEAD' });
+        if (res.ok && res.headers.get('content-type')?.startsWith('image/')) {
+          answerImage.onerror = () => {
+            answerImageContainer.classList.add('hidden');
+          };
+          answerImage.src = url;
+          answerImage.alt = '';
+          answerImageContainer.classList.remove('hidden');
+          return;
+        }
+      } catch {}
+    }
   }
 
   // ---- Toast ----
@@ -368,6 +394,7 @@
           bounceRow(currentRow);
           SoundManager.playWin();
           showResult('won', guessNum);
+          tryShowAnswerImage(currentPuzzle.puzzleId);
           refreshPuzzlesList();
         } else if (guessNum >= MAX_GUESSES) {
           // LOSE
@@ -440,6 +467,7 @@
       revealedAnswer.textContent = `The answer was: ${data.answer}`;
       revealedAnswer.classList.remove('hidden');
       revealBtn.classList.add('hidden');
+      tryShowAnswerImage(currentPuzzle.puzzleId);
     } catch (err) {
       showToast('Error revealing answer');
     }
@@ -588,6 +616,7 @@
       createBoard();
       resetKeyboardColors();
       resultArea.classList.add('hidden');
+      answerImageContainer.classList.add('hidden');
       revealBtn.classList.add('hidden');
       revealedAnswer.classList.add('hidden');
       playPrevBtn.classList.add('hidden');
@@ -606,6 +635,7 @@
       // Show result if already finished
       if (pState.status === 'won') {
         showResult('won', pState.guesses.length);
+        tryShowAnswerImage(data.puzzleId);
       } else if (pState.status === 'lost') {
         showResult('lost');
       }
