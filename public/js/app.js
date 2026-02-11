@@ -68,6 +68,9 @@
       this.preload('/sounds/lose.mp3').then(() => {
         if (this.failed['/sounds/lose.mp3']) this.preload('/sounds/lose.wav');
       });
+      // Preload alt sounds if specified for current puzzle
+      if (currentAltSounds.win) this.preload(currentAltSounds.win);
+      if (currentAltSounds.lose) this.preload(currentAltSounds.lose);
     },
 
     // Preload the next round of sounds after a guess
@@ -88,6 +91,8 @@
         this.preload('/sounds/lose.mp3').then(() => {
           if (this.failed['/sounds/lose.mp3']) this.preload('/sounds/lose.wav');
         });
+        if (currentAltSounds.win) this.preload(currentAltSounds.win);
+        if (currentAltSounds.lose) this.preload(currentAltSounds.lose);
       }
     },
 
@@ -132,7 +137,12 @@
     },
 
     playLose() {
-      let played = this.playPreloaded('/sounds/lose.mp3');
+      let played = false;
+      // Try alt sound first if specified for this puzzle
+      if (currentAltSounds.lose) {
+        played = this.playPreloaded(currentAltSounds.lose);
+      }
+      if (!played) played = this.playPreloaded('/sounds/lose.mp3');
       if (!played) played = this.playPreloaded('/sounds/lose.wav');
       if (!played) {
         this.playTone(300, 0.2);
@@ -141,7 +151,12 @@
     },
 
     playWin() {
-      let played = this.playPreloaded('/sounds/win.mp3');
+      let played = false;
+      // Try alt sound first if specified for this puzzle
+      if (currentAltSounds.win) {
+        played = this.playPreloaded(currentAltSounds.win);
+      }
+      if (!played) played = this.playPreloaded('/sounds/win.mp3');
       if (!played) played = this.playPreloaded('/sounds/win.wav');
       if (!played) {
         this.playTone(440, 0.15, 'sine');
@@ -162,6 +177,8 @@
   let nextPuzzleTime = null;   // UTC ISO string of next puzzle
   let countdownInterval = null;
   let allPuzzlesList = [];     // From /api/puzzles/list
+  let todayPuzzleId = null;    // The puzzle ID for today (set during init)
+  let currentAltSounds = { win: null, lose: null }; // Per-puzzle sound overrides
 
 	// ---- DOM refs ----
   const boardEl = document.getElementById('board');
@@ -511,13 +528,16 @@
       resultMessage.classList.add('win');
       revealBtn.classList.add('hidden');
       revealedAnswer.classList.add('hidden');
-      playPrevBtn.classList.remove('hidden');
+      // Only show "Play Previous" if previous puzzles exist
+      const hasPrevious = allPuzzlesList.some(p => p.puzzleId !== todayPuzzleId);
+      if (hasPrevious) playPrevBtn.classList.remove('hidden');
     } else {
       resultMessage.textContent = 'Better luck next time!';
       resultMessage.classList.add('lose');
       revealBtn.classList.remove('hidden');
       revealedAnswer.classList.add('hidden');
-      playPrevBtn.classList.remove('hidden');
+      const hasPrevious = allPuzzlesList.some(p => p.puzzleId !== todayPuzzleId);
+      if (hasPrevious) playPrevBtn.classList.remove('hidden');
     }
   }
 
@@ -621,9 +641,46 @@
 
   function renderPuzzlesList() {
     puzzlesListEl.innerHTML = '';
+    const puzzlesNav = document.getElementById('puzzles-nav');
 
-    // Show newest first
-    const sorted = [...allPuzzlesList].reverse();
+    // Separate today's puzzle from previous puzzles
+    const previousPuzzles = allPuzzlesList.filter(p => p.puzzleId !== todayPuzzleId);
+    const todayPuzzle = allPuzzlesList.find(p => p.puzzleId === todayPuzzleId);
+
+    // Hide entire section if no previous puzzles exist
+    if (previousPuzzles.length === 0) {
+      puzzlesNav.style.display = 'none';
+      return;
+    }
+    puzzlesNav.style.display = '';
+
+    // If currently viewing a previous puzzle, show "Back to Today" at top
+    const viewingPrevious = currentPuzzle && currentPuzzle.puzzleId !== todayPuzzleId;
+    if (viewingPrevious && todayPuzzle) {
+      const todayItem = document.createElement('div');
+      todayItem.className = 'puzzle-nav-item puzzle-nav-today';
+
+      const pState = gameState[todayPuzzle.puzzleId];
+      let statusClass = 'not-started';
+      if (pState) {
+        statusClass = pState.status === 'won' ? 'won'
+          : pState.status === 'lost' ? 'lost'
+          : 'in-progress';
+      }
+
+      todayItem.innerHTML = `
+        <div class="puzzle-nav-status ${statusClass}"></div>
+        <div class="puzzle-nav-info">
+          <div class="puzzle-nav-title">Today &mdash; Puzzle #${todayPuzzle.puzzleNumber}</div>
+          <div class="puzzle-nav-date">Back to today's puzzle</div>
+        </div>
+      `;
+      todayItem.addEventListener('click', () => loadPuzzle(todayPuzzle.puzzleId));
+      puzzlesListEl.appendChild(todayItem);
+    }
+
+    // Show previous puzzles newest first
+    const sorted = [...previousPuzzles].reverse();
 
     sorted.forEach(p => {
       const pState = gameState[p.puzzleId];
@@ -671,6 +728,12 @@
 
       currentPuzzle = data;
       puzzleNumberEl.textContent = data.puzzleNumber;
+
+      // Store alt sound overrides for this puzzle
+      currentAltSounds = {
+        win: data.altWinSound ? `/sounds/${data.altWinSound}` : null,
+        lose: data.altLoseSound ? `/sounds/${data.altLoseSound}` : null
+      };
 
       // Set clue text but keep hidden until conditions met
       clueText.textContent = data.clue;
@@ -735,6 +798,7 @@
       const res = await fetch('/api/today');
       const data = await res.json();
       nextPuzzleTime = data.nextPuzzleTime;
+      todayPuzzleId = data.puzzleId || null;
 
       if (!data.active && data.totalAvailable === 0) {
         showToast(data.message || 'No puzzles available yet.', 5000);

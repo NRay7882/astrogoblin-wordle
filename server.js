@@ -34,7 +34,18 @@ function loadPuzzles() {
       continue;
     }
     const answer = value.substring(0, pipeIndex).toUpperCase().trim();
-    const clue = value.substring(pipeIndex + 1).trim();
+    const rest = value.substring(pipeIndex + 1);
+    const secondPipe = rest.indexOf('|');
+    let clue, altWinSound = null, altLoseSound = null;
+    if (secondPipe !== -1) {
+      clue = rest.substring(0, secondPipe).trim();
+      const soundPart = rest.substring(secondPipe + 1).trim();
+      const sounds = soundPart.split(',').map(s => s.trim());
+      if (sounds[0]) altWinSound = sounds[0];
+      if (sounds[1]) altLoseSound = sounds[1];
+    } else {
+      clue = rest.trim();
+    }
 
     if (answer.length !== 5) {
       console.warn(`Skipping ${key}: answer "${answer}" is not 5 characters`);
@@ -45,7 +56,7 @@ function loadPuzzles() {
       continue;
     }
 
-    puzzleMap[dateStr] = { id: dateRaw, answer, clue, date: dateStr };
+    puzzleMap[dateStr] = { id: dateRaw, answer, clue, date: dateStr, altWinSound, altLoseSound };
   }
 
   console.log(`Loaded ${Object.keys(puzzleMap).length} puzzles`);
@@ -173,7 +184,9 @@ app.get('/api/today', (req, res) => {
     totalAvailable: available.length,
     totalPuzzles: getTotalPuzzleCount(),
     nextPuzzleTime: hasMorePuzzles ? getNextMidnightEasternUTC().toISOString() : null,
-    hasMorePuzzles
+    hasMorePuzzles,
+    altWinSound: puzzle.altWinSound || null,
+    altLoseSound: puzzle.altLoseSound || null
   });
 });
 
@@ -194,7 +207,9 @@ app.get('/api/puzzle/:puzzleId', (req, res) => {
     puzzleNumber: getPuzzleNumberForDate(puzzle.date),
     puzzleId: puzzle.id,
     clue: puzzle.clue,
-    date: puzzle.date
+    date: puzzle.date,
+    altWinSound: puzzle.altWinSound || null,
+    altLoseSound: puzzle.altLoseSound || null
   });
 });
 
@@ -236,7 +251,9 @@ app.get('/api/puzzles/list', (req, res) => {
       puzzleNumber: getPuzzleNumberForDate(dateStr),
       puzzleId: p.id,
       clue: p.clue,
-      date: p.date
+      date: p.date,
+      altWinSound: p.altWinSound || null,
+      altLoseSound: p.altLoseSound || null
     };
   });
 

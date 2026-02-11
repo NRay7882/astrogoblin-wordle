@@ -458,6 +458,12 @@ html, body {
   background: #2a2a2b;
 }
 
+.puzzle-nav-today {
+  border-color: var(--accent);
+  background: #1e1e1f;
+  margin-bottom: 8px;
+}
+
 .puzzle-nav-item.active {
   border-color: var(--accent);
 }
