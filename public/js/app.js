@@ -457,6 +457,7 @@
       if (!res.ok) {
         const err = await res.json();
         showToast(err.error || 'Error');
+        shakeRow(currentRow);
         return;
       }
 

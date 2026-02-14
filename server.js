@@ -85,6 +85,35 @@ function getTotalPuzzleCount() {
 const PUZZLES = loadPuzzles();
 
 // ---------------------------------------------------------------------------
+// Load valid 5-letter dictionary words for guess validation
+// ---------------------------------------------------------------------------
+function loadValidWords() {
+  const fs = require('fs');
+  const filePath = path.join(__dirname, 'data', 'valid-words.txt');
+  const words = new Set();
+
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    content.split('\n').forEach(line => {
+      const word = line.trim().toUpperCase();
+      if (word.length === 5 && /^[A-Z]+$/.test(word)) {
+        words.add(word);
+      }
+    });
+    console.log(`Loaded ${words.size} valid dictionary words`);
+  } else {
+    console.warn('No valid-words.txt found in data/ — only puzzle answers will be accepted as guesses');
+  }
+
+  // Add all puzzle answers as valid guesses (covers non-dictionary words like VADER)
+  Object.values(PUZZLES).forEach(p => words.add(p.answer));
+
+  return words;
+}
+
+const VALID_WORDS = loadValidWords();
+
+// ---------------------------------------------------------------------------
 // Eastern‑time helpers (respects DST via Intl)
 // ---------------------------------------------------------------------------
 function getEasternNow() {
@@ -224,6 +253,10 @@ app.post('/api/guess', (req, res) => {
   const upperGuess = guess.toUpperCase().trim();
   if (upperGuess.length !== 5 || !/^[A-Z0-9\-]+$/.test(upperGuess)) {
     return res.status(400).json({ error: 'Guess must be 5 characters (A-Z, 0-9, -)' });
+  }
+
+  if (!VALID_WORDS.has(upperGuess)) {
+    return res.status(422).json({ error: 'Not in word list' });
   }
 
   const puzzle = Object.values(PUZZLES).find(p => p.id === puzzleId);
