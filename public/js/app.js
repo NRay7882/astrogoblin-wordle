@@ -493,8 +493,8 @@
           currentRow++;
           currentGuess = '';
           saveState();
-          updateClueVisibility();
         }
+        updateClueVisibility();
       });
 
       currentGuess = '';
