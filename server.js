@@ -385,10 +385,10 @@ app.get('/api/answer-image/:puzzleId', async (req, res) => {
   res.status(404).json({ error: 'No image available' });
 });
 
-// GET /api/sound/:filename – serve sound files (local first, then GitHub private repo)
+// GET /api/sounds/:filename – serve sound files (local first, then GitHub private repo)
 const soundCache = new Map(); // filename -> { buffer, contentType } or null
 
-app.get('/api/sound/:filename', async (req, res) => {
+app.get('/api/sounds/:filename', async (req, res) => {
   const filename = req.params.filename;
 
   // Sanitize: only allow expected sound filenames
@@ -410,9 +410,9 @@ app.get('/api/sound/:filename', async (req, res) => {
   const ext = filename.split('.').pop().toLowerCase();
   const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-  // Try local file first (for local development)
+  // Try local file first (skip if SKIP_LOCAL_SOUNDS is set, for testing GitHub source)
   const localPath = path.join(__dirname, 'public', 'sounds', filename);
-  if (fs.existsSync(localPath)) {
+  if (!process.env.SKIP_LOCAL_SOUNDS && fs.existsSync(localPath)) {
     const buffer = fs.readFileSync(localPath);
     soundCache.set(filename, { buffer, contentType });
     res.set('Content-Type', contentType);

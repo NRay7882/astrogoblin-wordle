@@ -56,17 +56,17 @@
     // Preload the sounds needed for a specific guess number (1-6)
     async preloadForGuess(guessNum) {
       if (guessNum <= 5) {
-        await this.preload(`/api/sound/try${guessNum}.mp3`);
-        if (this.failed[`/api/sound/try${guessNum}.mp3`]) {
-          await this.preload(`/api/sound/try${guessNum}.wav`);
+        await this.preload(`/api/sounds/try${guessNum}.mp3`);
+        if (this.failed[`/api/sounds/try${guessNum}.mp3`]) {
+          await this.preload(`/api/sounds/try${guessNum}.wav`);
         }
       }
       // Always preload win/lose in the background
-      this.preload('/api/sound/win.mp3').then(() => {
-        if (this.failed['/api/sound/win.mp3']) this.preload('/api/sound/win.wav');
+      this.preload('/api/sounds/win.mp3').then(() => {
+        if (this.failed['/api/sounds/win.mp3']) this.preload('/api/sounds/win.wav');
       });
-      this.preload('/api/sound/lose.mp3').then(() => {
-        if (this.failed['/api/sound/lose.mp3']) this.preload('/api/sound/lose.wav');
+      this.preload('/api/sounds/lose.mp3').then(() => {
+        if (this.failed['/api/sounds/lose.mp3']) this.preload('/api/sounds/lose.wav');
       });
       // Preload alt sounds if specified for current puzzle
       if (currentAltSounds.win) this.preload(currentAltSounds.win);
@@ -77,19 +77,19 @@
     preloadNext(guessNum) {
       // Preload the next try sound
       if (guessNum < 5) {
-        this.preload(`/api/sound/try${guessNum + 1}.mp3`).then(() => {
-          if (this.failed[`/api/sound/try${guessNum + 1}.mp3`]) {
-            this.preload(`/api/sound/try${guessNum + 1}.wav`);
+        this.preload(`/api/sounds/try${guessNum + 1}.mp3`).then(() => {
+          if (this.failed[`/api/sounds/try${guessNum + 1}.mp3`]) {
+            this.preload(`/api/sounds/try${guessNum + 1}.wav`);
           }
         });
       }
       // Preload win/lose after guess 3+
       if (guessNum >= 3) {
-        this.preload('/api/sound/win.mp3').then(() => {
-          if (this.failed['/api/sound/win.mp3']) this.preload('/api/sound/win.wav');
+        this.preload('/api/sounds/win.mp3').then(() => {
+          if (this.failed['/api/sounds/win.mp3']) this.preload('/api/sounds/win.wav');
         });
-        this.preload('/api/sound/lose.mp3').then(() => {
-          if (this.failed['/api/sound/lose.mp3']) this.preload('/api/sound/lose.wav');
+        this.preload('/api/sounds/lose.mp3').then(() => {
+          if (this.failed['/api/sounds/lose.mp3']) this.preload('/api/sounds/lose.wav');
         });
         if (currentAltSounds.win) this.preload(currentAltSounds.win);
         if (currentAltSounds.lose) this.preload(currentAltSounds.lose);
@@ -129,8 +129,8 @@
     },
 
     playWrong(guessNum) {
-      let played = this.playPreloaded(`/api/sound/try${guessNum}.mp3`);
-      if (!played) played = this.playPreloaded(`/api/sound/try${guessNum}.wav`);
+      let played = this.playPreloaded(`/api/sounds/try${guessNum}.mp3`);
+      if (!played) played = this.playPreloaded(`/api/sounds/try${guessNum}.wav`);
       if (!played) this.playTone(400 - (guessNum * 40), 0.3, 'square');
       // Preload the next sounds
       this.preloadNext(guessNum);
@@ -142,8 +142,8 @@
       if (currentAltSounds.lose) {
         played = this.playPreloaded(currentAltSounds.lose);
       }
-      if (!played) played = this.playPreloaded('/api/sound/lose.mp3');
-      if (!played) played = this.playPreloaded('/api/sound/lose.wav');
+      if (!played) played = this.playPreloaded('/api/sounds/lose.mp3');
+      if (!played) played = this.playPreloaded('/api/sounds/lose.wav');
       if (!played) {
         this.playTone(300, 0.2);
         setTimeout(() => this.playTone(200, 0.4), 200);
@@ -156,8 +156,8 @@
       if (currentAltSounds.win) {
         played = this.playPreloaded(currentAltSounds.win);
       }
-      if (!played) played = this.playPreloaded('/api/sound/win.mp3');
-      if (!played) played = this.playPreloaded('/api/sound/win.wav');
+      if (!played) played = this.playPreloaded('/api/sounds/win.mp3');
+      if (!played) played = this.playPreloaded('/api/sounds/win.wav');
       if (!played) {
         this.playTone(440, 0.15, 'sine');
         setTimeout(() => this.playTone(554, 0.15, 'sine'), 150);
@@ -902,8 +902,8 @@
 
       // Store alt sound overrides for this puzzle
       currentAltSounds = {
-        win: data.altWinSound ? `/api/sound/${data.altWinSound}` : null,
-        lose: data.altLoseSound ? `/api/sound/${data.altLoseSound}` : null
+        win: data.altWinSound ? `/api/sounds/${data.altWinSound}` : null,
+        lose: data.altLoseSound ? `/api/sounds/${data.altLoseSound}` : null
       };
 
       // Set clue text but keep hidden until conditions met
