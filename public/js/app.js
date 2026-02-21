@@ -190,7 +190,10 @@
   const revealedAnswer = document.getElementById('revealed-answer');
   const playPrevBtn = document.getElementById('play-previous-btn');
   const countdownEl = document.getElementById('countdown');
-  const puzzlesListEl = document.getElementById('puzzles-list');
+  const puzzlesCalendarEl = document.getElementById('puzzles-calendar');
+  const statsSection = document.getElementById('stats-section');
+  const statsSummary = document.getElementById('stats-summary');
+  const statsDistribution = document.getElementById('stats-distribution');
   const clueBtn = document.getElementById('clue-btn');
   const clueText = document.getElementById('clue-text');
   const answerImageContainer = document.getElementById('answer-image-container');
@@ -640,26 +643,135 @@
     }
   }
 
+  // ---- Attempt Boxes Helper ----
+  // Returns HTML string for 6 small boxes representing guess attempts
+  function buildAttemptBoxes(puzzleId) {
+    const pState = gameState[puzzleId];
+    let boxes = '';
+
+    for (let i = 0; i < MAX_GUESSES; i++) {
+      if (!pState || !pState.guesses[i]) {
+        // No guess made for this slot
+        boxes += '<div class="attempt-box"></div>';
+        continue;
+      }
+
+      const guess = pState.guesses[i];
+      const allCorrect = guess.result.every(r => r.status === 'correct');
+
+      if (allCorrect) {
+        boxes += '<div class="attempt-box box-green"></div>';
+      } else if (i === MAX_GUESSES - 1 && pState.status === 'lost') {
+        // 6th guess and player lost
+        boxes += '<div class="attempt-box box-red"></div>';
+      } else {
+        const hasHit = guess.result.some(r => r.status === 'correct' || r.status === 'present');
+        boxes += hasHit
+          ? '<div class="attempt-box box-yellow"></div>'
+          : '<div class="attempt-box box-gray"></div>';
+      }
+    }
+
+    return `<div class="attempt-boxes">${boxes}</div>`;
+  }
+
+  // ---- Stats Scoreboard ----
+  function renderStats() {
+    // Collect all completed puzzles (won or lost only)
+    const completed = [];
+    const available = allPuzzlesList.length;
+
+    allPuzzlesList.forEach(p => {
+      const pState = gameState[p.puzzleId];
+      if (pState && (pState.status === 'won' || pState.status === 'lost')) {
+        completed.push(pState);
+      }
+    });
+
+    // Only show stats if at least one puzzle is fully completed
+    if (completed.length === 0) {
+      statsSection.classList.add('hidden');
+      return;
+    }
+    statsSection.classList.remove('hidden');
+
+    const won = completed.filter(s => s.status === 'won');
+    const lost = completed.filter(s => s.status === 'lost');
+    const total = completed.length;
+    const winPct = total > 0 ? Math.round((won.length / total) * 100) : 0;
+
+    // Guess distribution: count how many wins at each guess number (1-6)
+    const dist = [0, 0, 0, 0, 0, 0]; // index 0 = 1 guess, index 5 = 6 guesses
+    won.forEach(s => {
+      const idx = s.guesses.length - 1;
+      if (idx >= 0 && idx < 6) dist[idx]++;
+    });
+
+    // Summary row
+    statsSummary.innerHTML = `
+      <div class="stat-box"><div class="stat-value">${won.length}</div><div class="stat-label">Solved</div></div>
+      <div class="stat-box"><div class="stat-value">${total}</div><div class="stat-label">Played</div></div>
+      <div class="stat-box"><div class="stat-value">${available}</div><div class="stat-label">Available</div></div>
+      <div class="stat-box"><div class="stat-value">${winPct}%</div><div class="stat-label">Win Rate</div></div>
+    `;
+
+    // Distribution bars
+    const maxCount = Math.max(...dist, lost.length, 1);
+    let distHTML = '<h3 class="dist-header">Attempts</h3>';
+
+    for (let i = 0; i < 6; i++) {
+      const count = dist[i];
+      if (count === 0) continue;
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      const barWidth = Math.max((count / maxCount) * 100, 8);
+      distHTML += `
+        <div class="dist-row">
+          <div class="dist-label">${i + 1}</div>
+          <div class="dist-bar-wrapper">
+            <div class="dist-bar bar-green" style="width:${barWidth}%">${count} (${pct}%)</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Failed row (only show if there are losses)
+    const failCount = lost.length;
+    if (failCount > 0) {
+      const failPct = total > 0 ? Math.round((failCount / total) * 100) : 0;
+      const failWidth = Math.max((failCount / maxCount) * 100, 8);
+      distHTML += `
+        <div class="dist-row">
+          <div class="dist-label">✗</div>
+          <div class="dist-bar-wrapper">
+            <div class="dist-bar bar-red" style="width:${failWidth}%">${failCount} (${failPct}%)</div>
+          </div>
+        </div>
+      `;
+    }
+
+    statsDistribution.innerHTML = distHTML;
+  }
+
+  // ---- Calendar-style Previous Puzzles ----
   function renderPuzzlesList() {
-    puzzlesListEl.innerHTML = '';
+    puzzlesCalendarEl.innerHTML = '';
     const puzzlesNav = document.getElementById('puzzles-nav');
 
-    // Separate today's puzzle from previous puzzles
     const previousPuzzles = allPuzzlesList.filter(p => p.puzzleId !== todayPuzzleId);
     const todayPuzzle = allPuzzlesList.find(p => p.puzzleId === todayPuzzleId);
 
-    // Hide entire section if no previous puzzles exist
     if (previousPuzzles.length === 0) {
       puzzlesNav.style.display = 'none';
+      renderStats();
       return;
     }
     puzzlesNav.style.display = '';
 
-    // If currently viewing a previous puzzle, show "Back to Today" at top
+    // "Back to Today" banner when viewing a previous puzzle
     const viewingPrevious = currentPuzzle && currentPuzzle.puzzleId !== todayPuzzleId;
     if (viewingPrevious && todayPuzzle) {
-      const todayItem = document.createElement('div');
-      todayItem.className = 'puzzle-nav-item puzzle-nav-today';
+      const banner = document.createElement('div');
+      banner.className = 'cal-today-banner';
 
       const pState = gameState[todayPuzzle.puzzleId];
       let statusClass = 'not-started';
@@ -669,51 +781,107 @@
           : 'in-progress';
       }
 
-      todayItem.innerHTML = `
+      banner.innerHTML = `
         <div class="puzzle-nav-status ${statusClass}"></div>
-        <div class="puzzle-nav-info">
-          <div class="puzzle-nav-title">Today &mdash; Puzzle #${todayPuzzle.puzzleNumber}</div>
-          <div class="puzzle-nav-date">Back to today's puzzle</div>
+        <div class="cal-today-banner-info">
+          <div class="cal-today-banner-title">Today &mdash; Puzzle #${todayPuzzle.puzzleNumber}</div>
+          <div class="cal-today-banner-sub">Back to today's puzzle</div>
         </div>
       `;
-      todayItem.addEventListener('click', () => loadPuzzle(todayPuzzle.puzzleId));
-      puzzlesListEl.appendChild(todayItem);
+      banner.addEventListener('click', () => loadPuzzle(todayPuzzle.puzzleId));
+      puzzlesCalendarEl.appendChild(banner);
     }
 
-    // Show previous puzzles newest first
-    const sorted = [...previousPuzzles].reverse();
-
-    sorted.forEach(p => {
-      const pState = gameState[p.puzzleId];
-      let statusClass = 'not-started';
-      if (pState) {
-        statusClass = pState.status === 'won' ? 'won'
-          : pState.status === 'lost' ? 'lost'
-          : 'in-progress';
-      }
-
-      const item = document.createElement('div');
-      item.className = 'puzzle-nav-item';
-      if (currentPuzzle && p.puzzleId === currentPuzzle.puzzleId) {
-        item.classList.add('active');
-      }
-
+    // Group previous puzzles by month (newest months first)
+    const monthGroups = {};
+    previousPuzzles.forEach(p => {
       const dateObj = new Date(p.date + 'T12:00:00');
-      const dateStr = dateObj.toLocaleDateString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric'
-      });
+      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthGroups[monthKey]) monthGroups[monthKey] = [];
+      monthGroups[monthKey].push(p);
+    });
 
-      item.innerHTML = `
-        <div class="puzzle-nav-status ${statusClass}"></div>
-        <div class="puzzle-nav-info">
-          <div class="puzzle-nav-title">Puzzle #${p.puzzleNumber}</div>
-          <div class="puzzle-nav-date">${dateStr}</div>
-        </div>
+    // Sort months newest first
+    const sortedMonths = Object.keys(monthGroups).sort().reverse();
+
+    // Determine which month the currently viewed puzzle is in (for auto-expand)
+    let activeMonthKey = null;
+    if (currentPuzzle) {
+      const activeDate = new Date(currentPuzzle.date + 'T12:00:00');
+      activeMonthKey = `${activeDate.getFullYear()}-${String(activeDate.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    sortedMonths.forEach((monthKey, idx) => {
+      const puzzles = monthGroups[monthKey];
+      // Sort puzzles within month newest first
+      puzzles.sort((a, b) => b.date.localeCompare(a.date));
+
+      const dateRef = new Date(monthKey + '-15T12:00:00');
+      const monthName = dateRef.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      // Auto-expand: first month (most recent) OR the month containing the active puzzle
+      const isExpanded = idx === 0 || monthKey === activeMonthKey;
+
+      const group = document.createElement('div');
+      group.className = 'cal-month-group';
+
+      const header = document.createElement('div');
+      header.className = 'cal-month-header';
+      header.innerHTML = `
+        <span class="cal-month-title">${monthName} (${puzzles.length})</span>
+        <span class="cal-month-toggle ${isExpanded ? 'open' : ''}">▼</span>
       `;
 
-      item.addEventListener('click', () => loadPuzzle(p.puzzleId));
-      puzzlesListEl.appendChild(item);
+      const body = document.createElement('div');
+      body.className = 'cal-month-body' + (isExpanded ? ' open' : '');
+
+      header.addEventListener('click', () => {
+        body.classList.toggle('open');
+        header.querySelector('.cal-month-toggle').classList.toggle('open');
+      });
+
+      const grid = document.createElement('div');
+      grid.className = 'cal-grid';
+
+      puzzles.forEach(p => {
+        const pState = gameState[p.puzzleId];
+        let statusClass = 'not-started';
+        if (pState) {
+          statusClass = pState.status === 'won' ? 'won'
+            : pState.status === 'lost' ? 'lost'
+            : 'in-progress';
+        }
+
+        const dateObj = new Date(p.date + 'T12:00:00');
+        const dayStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell';
+        if (currentPuzzle && p.puzzleId === currentPuzzle.puzzleId) {
+          cell.classList.add('active');
+        }
+
+        cell.innerHTML = `
+          <div class="cal-cell-top">
+            <span class="cal-cell-number">#${p.puzzleNumber}</span>
+            <div class="puzzle-nav-status ${statusClass}"></div>
+          </div>
+          <div class="cal-cell-day">${dayStr}</div>
+          ${buildAttemptBoxes(p.puzzleId)}
+        `;
+
+        cell.addEventListener('click', () => loadPuzzle(p.puzzleId));
+        grid.appendChild(cell);
+      });
+
+      body.appendChild(grid);
+      group.appendChild(header);
+      group.appendChild(body);
+      puzzlesCalendarEl.appendChild(group);
     });
+
+    // Render stats scoreboard
+    renderStats();
   }
 
   // ---- Load a Puzzle ----
