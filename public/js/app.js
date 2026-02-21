@@ -728,7 +728,8 @@
         <div class="dist-row">
           <div class="dist-label">${i + 1}</div>
           <div class="dist-bar-wrapper">
-            <div class="dist-bar bar-green" style="width:${barWidth}%">${count} (${pct}%)</div>
+            <div class="dist-bar bar-green" style="width:${barWidth}%"></div>
+            <span class="dist-value">${count} (${pct}%)</span>
           </div>
         </div>
       `;
@@ -743,7 +744,8 @@
         <div class="dist-row">
           <div class="dist-label">✗</div>
           <div class="dist-bar-wrapper">
-            <div class="dist-bar bar-red" style="width:${failWidth}%">${failCount} (${failPct}%)</div>
+            <div class="dist-bar bar-red" style="width:${failWidth}%"></div>
+            <span class="dist-value">${failCount} (${failPct}%)</span>
           </div>
         </div>
       `;

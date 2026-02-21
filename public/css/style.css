@@ -600,21 +600,23 @@ html, body {
 .dist-bar-wrapper {
   flex: 1;
   height: 20px;
-  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .dist-bar {
   height: 100%;
-  min-width: 24px;
+  min-width: 8px;
   border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 6px;
+  transition: width 0.4s ease;
+}
+
+.dist-value {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #fff;
-  transition: width 0.4s ease;
+  color: var(--text-dim);
+  white-space: nowrap;
+  padding-left: 6px;
 }
 
 .dist-bar.bar-green { background: var(--green); }
