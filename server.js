@@ -12,6 +12,11 @@ app.use('/images/answers', (req, res, next) => {
   res.status(403).json({ error: 'Access denied' });
 });
 
+// Block direct static access to sounds
+app.use('/sounds', (req, res, next) => {
+  res.status(403).json({ error: 'Access denied' });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
@@ -378,6 +383,66 @@ app.get('/api/answer-image/:puzzleId', async (req, res) => {
   // Nothing found — cache the miss too
   imageCache.set(id, null);
   res.status(404).json({ error: 'No image available' });
+});
+
+// GET /api/sound/:filename – serve sound files (local first, then GitHub private repo)
+const soundCache = new Map(); // filename -> { buffer, contentType } or null
+
+app.get('/api/sound/:filename', async (req, res) => {
+  const filename = req.params.filename;
+
+  // Sanitize: only allow expected sound filenames
+  if (!/^[\w\-]+\.(mp3|wav|ogg)$/i.test(filename)) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  // Check memory cache first
+  if (soundCache.has(filename)) {
+    const cached = soundCache.get(filename);
+    if (!cached) return res.status(404).json({ error: 'Sound not found' });
+    res.set('Content-Type', cached.contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(cached.buffer);
+  }
+
+  const fs = require('fs');
+  const mimeTypes = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg' };
+  const ext = filename.split('.').pop().toLowerCase();
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  // Try local file first (for local development)
+  const localPath = path.join(__dirname, 'public', 'sounds', filename);
+  if (fs.existsSync(localPath)) {
+    const buffer = fs.readFileSync(localPath);
+    soundCache.set(filename, { buffer, contentType });
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(buffer);
+  }
+
+  // Try GitHub private repo
+  const token = process.env.GITHUB_ASSETS_TOKEN;
+  const repo = process.env.GITHUB_ASSETS_REPO;
+  if (token && repo) {
+    try {
+      const url = `https://raw.githubusercontent.com/${repo}/main/sounds/${filename}`;
+      const ghRes = await fetch(url, {
+        headers: { 'Authorization': `token ${token}` }
+      });
+      if (ghRes.ok) {
+        const arrayBuffer = await ghRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        soundCache.set(filename, { buffer, contentType });
+        res.set('Content-Type', contentType);
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
+    } catch {}
+  }
+
+  // Nothing found — cache the miss
+  soundCache.set(filename, null);
+  res.status(404).json({ error: 'Sound not found' });
 });
 
 // Fallback: serve index.html for all other routes
