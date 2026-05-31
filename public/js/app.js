@@ -603,14 +603,21 @@
   }
 
   function updateCountdown() {
+    const timerContainer = document.getElementById('timer-container');
     if (!nextPuzzleTime) {
-      document.getElementById('timer-container').style.display = 'none';
+      timerContainer.style.display = 'none';
       return;
     }
-    document.getElementById('timer-container').style.display = '';
     const now = Date.now();
     const target = new Date(nextPuzzleTime).getTime();
     let diff = Math.max(0, target - now);
+
+    // Only show countdown within 24 hours of the next puzzle
+    if (diff > 86400000) {
+      timerContainer.style.display = 'none';
+      return;
+    }
+    timerContainer.style.display = '';
 
     if (diff <= 0) {
       countdownEl.textContent = '00:00:00';
@@ -620,14 +627,19 @@
       return;
     }
 
+    const days = Math.floor(diff / 86400000);
+    diff %= 86400000;
     const h = Math.floor(diff / 3600000);
     diff %= 3600000;
     const m = Math.floor(diff / 60000);
     diff %= 60000;
     const s = Math.floor(diff / 1000);
 
-    countdownEl.textContent =
-      `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (days > 0) {
+      countdownEl.textContent = `${days}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    } else {
+      countdownEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
   }
 
   // ---- Previous Puzzles List ----

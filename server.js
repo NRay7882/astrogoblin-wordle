@@ -89,6 +89,20 @@ function getTotalPuzzleCount() {
 
 const PUZZLES = loadPuzzles();
 
+// Get the next future puzzle date string after today, or null
+function getNextPuzzleDate() {
+  const today = getEasternDateString();
+  const futureDates = Object.keys(PUZZLES).filter(d => d > today).sort();
+  return futureDates.length > 0 ? futureDates[0] : null;
+}
+
+// Get tomorrow's date string in Eastern time
+function getTomorrowEasternDateString() {
+  const todayObj = new Date(getEasternDateString() + 'T12:00:00');
+  todayObj.setDate(todayObj.getDate() + 1);
+  return todayObj.toISOString().split('T')[0];
+}
+
 // ---------------------------------------------------------------------------
 // Load valid 5-letter dictionary words for guess validation
 // ---------------------------------------------------------------------------
@@ -204,10 +218,10 @@ app.get('/api/today', (req, res) => {
   const todayDate = available.includes(today) ? today : available[available.length - 1];
   const puzzle = PUZZLES[todayDate];
 
-  // Check for future puzzles for next day
-  const allDates = Object.keys(PUZZLES).sort();
-  const lastPuzzleDate = allDates[allDates.length - 1];
-  const hasMorePuzzles = today < lastPuzzleDate;
+  // Check for future puzzles — only provide countdown if next puzzle is tomorrow
+  const nextDate = getNextPuzzleDate();
+  const hasMorePuzzles = nextDate !== null;
+  const nextPuzzleIsTomorrow = hasMorePuzzles && nextDate === getTomorrowEasternDateString();
 
   res.json({
     active: true,
@@ -217,7 +231,7 @@ app.get('/api/today', (req, res) => {
     date: puzzle.date,
     totalAvailable: available.length,
     totalPuzzles: getTotalPuzzleCount(),
-    nextPuzzleTime: hasMorePuzzles ? getNextMidnightEasternUTC().toISOString() : null,
+    nextPuzzleTime: nextPuzzleIsTomorrow ? getNextMidnightEasternUTC().toISOString() : null,
     hasMorePuzzles,
     altWinSound: puzzle.altWinSound || null,
     altLoseSound: puzzle.altLoseSound || null
@@ -296,14 +310,14 @@ app.get('/api/puzzles/list', (req, res) => {
   });
 
   const today = getEasternDateString();
-  const allDates = Object.keys(PUZZLES).sort();
-  const lastPuzzleDate = allDates[allDates.length - 1];
-  const hasMorePuzzles = today < lastPuzzleDate;
+  const nextDate = getNextPuzzleDate();
+  const hasMorePuzzles = nextDate !== null;
+  const nextPuzzleIsTomorrow = hasMorePuzzles && nextDate === getTomorrowEasternDateString();
 
   res.json({
     puzzles: list,
     totalPuzzles: getTotalPuzzleCount(),
-    nextPuzzleTime: hasMorePuzzles ? getNextMidnightEasternUTC().toISOString() : null,
+    nextPuzzleTime: nextPuzzleIsTomorrow ? getNextMidnightEasternUTC().toISOString() : null,
     hasMorePuzzles
   });
 });
