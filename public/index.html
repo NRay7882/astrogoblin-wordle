@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SVWBordle – Astrogoblin Wordle</title>
-  <link rel="stylesheet" href="/css/style.css?v=3">
+  <link rel="stylesheet" href="/css/style.css?v=8">
 </head>
 <body>
   <div id="app">
@@ -22,9 +22,16 @@
       <p>The word bank is now depleted! As of <strong>June 1st, 2026</strong> there will be no new daily puzzles...but there may still be a few surprises for special dates throughout the year. The full history and all previous puzzles are still available to play below.</p>
     </div>
 
+    <!-- Random Puzzle -->
+    <div id="random-puzzle-wrapper">
+      <button id="random-btn" class="btn btn-random">Random Puzzle</button>
+    </div>
+
     <!-- Puzzle Info -->
     <div id="puzzle-info">
-      <div id="puzzle-label">Puzzle #<span id="puzzle-number">-</span></div>
+      <div id="puzzle-label">
+        <a id="puzzle-label-link" href="#puzzles-nav" title="Jump to all previous puzzles">Puzzle #<span id="puzzle-number">-</span><span id="puzzle-date"></span></a>
+      </div>
       <div id="puzzle-clue-wrapper">
         <button id="clue-btn" class="btn btn-clue hidden">Show Clue</button>
         <span id="clue-text" class="hidden"></span>
@@ -78,6 +85,6 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=3"></script>
+  <script src="/js/app.js?v=8"></script>
 </body>
 </html>

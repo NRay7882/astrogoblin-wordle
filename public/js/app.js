@@ -177,13 +177,18 @@
   let nextPuzzleTime = null;   // UTC ISO string of next puzzle
   let countdownInterval = null;
   let allPuzzlesList = [];     // From /api/puzzles/list
-  let todayPuzzleId = null;    // The puzzle ID for today (set during init)
+  let todayPuzzleId = null;    // The puzzle ID for the current/latest puzzle (set during init)
+  let latestIsToday = false;   // True only when the latest puzzle's date is the actual current date
+  const expandedMonths = new Set(); // Month keys ('YYYY-MM') the user has open; survives re-renders
   let currentAltSounds = { win: null, lose: null }; // Per-puzzle sound overrides
 
 	// ---- DOM refs ----
   const boardEl = document.getElementById('board');
   const toastContainer = document.getElementById('toast-container');
   const puzzleNumberEl = document.getElementById('puzzle-number');
+  const puzzleDateEl = document.getElementById('puzzle-date');
+  const puzzleLabelLink = document.getElementById('puzzle-label-link');
+  const randomBtn = document.getElementById('random-btn');
   const resultArea = document.getElementById('result-area');
   const resultMessage = document.getElementById('result-message');
   const revealBtn = document.getElementById('reveal-btn');
@@ -568,6 +573,84 @@
     document.getElementById('puzzles-nav').scrollIntoView({ behavior: 'smooth' });
   });
 
+  // Puzzle number/date label scrolls down to the previous puzzles calendar and
+  // auto-expands the month group the current puzzle belongs to
+  puzzleLabelLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const nav = document.getElementById('puzzles-nav');
+    if (!nav || nav.style.display === 'none') return;
+
+    if (currentPuzzle) {
+      const monthKey = monthKeyForDate(currentPuzzle.date);
+      const group = puzzlesCalendarEl.querySelector(`.cal-month-group[data-month="${monthKey}"]`);
+      if (group) {
+        const body = group.querySelector('.cal-month-body');
+        const toggle = group.querySelector('.cal-month-toggle');
+        if (body && !body.classList.contains('open')) {
+          body.classList.add('open');
+          if (toggle) toggle.classList.add('open');
+        }
+        expandedMonths.add(monthKey);
+        group.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+    nav.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Format a YYYY-MM-DD string as e.g. "August 14, 2026"
+  function formatPuzzleDate(dateStr) {
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    return dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  // Month grouping key ('YYYY-MM') for a YYYY-MM-DD date string
+  function monthKeyForDate(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  // Pick a random puzzle, preferring (1) never attempted, then (2) started but
+  // unfinished, then (3) any finished puzzle. Avoids re-picking the current one
+  // unless it's the only candidate in the chosen tier.
+  function pickRandomPuzzle() {
+    const unattempted = [];
+    const inProgress = [];
+    const finished = [];
+
+    allPuzzlesList.forEach(p => {
+      const s = gameState[p.puzzleId];
+      if (!s || s.guesses.length === 0) {
+        unattempted.push(p);
+      } else if (s.status === 'won' || s.status === 'lost') {
+        finished.push(p);
+      } else {
+        inProgress.push(p);
+      }
+    });
+
+    const tier = unattempted.length ? unattempted
+      : inProgress.length ? inProgress
+      : finished;
+    if (!tier.length) return null;
+
+    const currentId = currentPuzzle && currentPuzzle.puzzleId;
+    const candidates = tier.filter(p => p.puzzleId !== currentId);
+    const pool = candidates.length ? candidates : tier;
+
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Random puzzle button
+  randomBtn.addEventListener('click', () => {
+    const pick = pickRandomPuzzle();
+    if (!pick) {
+      showToast('No puzzles available');
+      return;
+    }
+    loadPuzzle(pick.puzzleId);
+  });
+
   // Clue button toggle
   clueBtn.addEventListener('click', () => {
     clueRevealed = !clueRevealed;
@@ -655,36 +738,21 @@
     }
   }
 
-  // ---- Attempt Boxes Helper ----
-  // Returns HTML string for 6 small boxes representing guess attempts
-  function buildAttemptBoxes(puzzleId) {
+  // ---- Attempt Status Helper ----
+  // Returns the status class and a short number/label summarizing play on a puzzle:
+  //   won         -> number of guesses used (1-6)
+  //   lost        -> 'X'
+  //   in-progress -> number of guesses made so far
+  //   not-started -> '' (no play yet)
+  function getAttemptInfo(puzzleId) {
     const pState = gameState[puzzleId];
-    let boxes = '';
-
-    for (let i = 0; i < MAX_GUESSES; i++) {
-      if (!pState || !pState.guesses[i]) {
-        // No guess made for this slot
-        boxes += '<div class="attempt-box"></div>';
-        continue;
-      }
-
-      const guess = pState.guesses[i];
-      const allCorrect = guess.result.every(r => r.status === 'correct');
-
-      if (allCorrect) {
-        boxes += '<div class="attempt-box box-green"></div>';
-      } else if (i === MAX_GUESSES - 1 && pState.status === 'lost') {
-        // 6th guess and player lost
-        boxes += '<div class="attempt-box box-red"></div>';
-      } else {
-        const hasHit = guess.result.some(r => r.status === 'correct' || r.status === 'present');
-        boxes += hasHit
-          ? '<div class="attempt-box box-yellow"></div>'
-          : '<div class="attempt-box box-gray"></div>';
-      }
+    if (!pState || pState.guesses.length === 0) {
+      return { statusClass: 'not-started', label: '' };
     }
-
-    return `<div class="attempt-boxes">${boxes}</div>`;
+    const count = pState.guesses.length;
+    if (pState.status === 'won') return { statusClass: 'won', label: `${count}/${MAX_GUESSES}` };
+    if (pState.status === 'lost') return { statusClass: 'lost', label: 'X' };
+    return { statusClass: 'in-progress', label: `${count}/${MAX_GUESSES}` };
   }
 
   // ---- Stats Scoreboard ----
@@ -771,19 +839,26 @@
     puzzlesCalendarEl.innerHTML = '';
     const puzzlesNav = document.getElementById('puzzles-nav');
 
-    const previousPuzzles = allPuzzlesList.filter(p => p.puzzleId !== todayPuzzleId);
     const todayPuzzle = allPuzzlesList.find(p => p.puzzleId === todayPuzzleId);
 
-    if (previousPuzzles.length === 0) {
+    // Only treat the latest puzzle as a special pinned "today" when its date is
+    // genuinely the current date. Otherwise it is just a normal puzzle that lives
+    // in its own month on the calendar (e.g. the depleted-word-bank case).
+    const calendarPuzzles = latestIsToday
+      ? allPuzzlesList.filter(p => p.puzzleId !== todayPuzzleId)
+      : allPuzzlesList;
+
+    if (calendarPuzzles.length === 0) {
       puzzlesNav.style.display = 'none';
       renderStats();
       return;
     }
     puzzlesNav.style.display = '';
 
-    // "Back to Today" banner when viewing a previous puzzle
+    // "Back to Today" banner - shown only for a genuine same-date today puzzle
+    // while the player is viewing a different puzzle.
     const viewingPrevious = currentPuzzle && currentPuzzle.puzzleId !== todayPuzzleId;
-    if (viewingPrevious && todayPuzzle) {
+    if (latestIsToday && viewingPrevious && todayPuzzle) {
       const banner = document.createElement('div');
       banner.className = 'cal-today-banner';
 
@@ -798,7 +873,7 @@
       banner.innerHTML = `
         <div class="puzzle-nav-status ${statusClass}"></div>
         <div class="cal-today-banner-info">
-          <div class="cal-today-banner-title">Today &mdash; Puzzle #${todayPuzzle.puzzleNumber}</div>
+          <div class="cal-today-banner-title">Today - Puzzle #${todayPuzzle.puzzleNumber}</div>
           <div class="cal-today-banner-sub">Back to today's puzzle</div>
         </div>
       `;
@@ -806,9 +881,9 @@
       puzzlesCalendarEl.appendChild(banner);
     }
 
-    // Group previous puzzles by month (newest months first)
+    // Group puzzles by month (newest months first)
     const monthGroups = {};
-    previousPuzzles.forEach(p => {
+    calendarPuzzles.forEach(p => {
       const dateObj = new Date(p.date + 'T12:00:00');
       const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
       if (!monthGroups[monthKey]) monthGroups[monthKey] = [];
@@ -818,26 +893,24 @@
     // Sort months newest first
     const sortedMonths = Object.keys(monthGroups).sort().reverse();
 
-    // Determine which month the currently viewed puzzle is in (for auto-expand)
-    let activeMonthKey = null;
-    if (currentPuzzle) {
-      const activeDate = new Date(currentPuzzle.date + 'T12:00:00');
-      activeMonthKey = `${activeDate.getFullYear()}-${String(activeDate.getMonth() + 1).padStart(2, '0')}`;
-    }
+    // Open/closed state is driven by expandedMonths so the user's manual toggles
+    // are preserved across re-renders. Selecting a puzzle adds its month (in
+    // loadPuzzle); nothing here force-collapses a month the user opened.
+    // Only on the very first render (before any puzzle is loaded) fall back to the
+    // most recent month so the section isn't completely collapsed on arrival.
+    const nothingTrackedYet = expandedMonths.size === 0 && !currentPuzzle;
 
     sortedMonths.forEach((monthKey, idx) => {
       const puzzles = monthGroups[monthKey];
-      // Sort puzzles within month newest first
-      puzzles.sort((a, b) => b.date.localeCompare(a.date));
 
       const dateRef = new Date(monthKey + '-15T12:00:00');
       const monthName = dateRef.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-      // Auto-expand: first month (most recent) OR the month containing the active puzzle
-      const isExpanded = idx === 0 || monthKey === activeMonthKey;
+      const isExpanded = expandedMonths.has(monthKey) || (nothingTrackedYet && idx === 0);
 
       const group = document.createElement('div');
       group.className = 'cal-month-group';
+      group.dataset.month = monthKey;
 
       const header = document.createElement('div');
       header.className = 'cal-month-header';
@@ -849,45 +922,84 @@
       const body = document.createElement('div');
       body.className = 'cal-month-body' + (isExpanded ? ' open' : '');
 
+      // Seed the tracked state from this render so the fallback-open month is
+      // also remembered (keeps it open on later re-renders, e.g. after a win)
+      if (isExpanded) expandedMonths.add(monthKey);
+
       header.addEventListener('click', () => {
-        body.classList.toggle('open');
+        const nowOpen = body.classList.toggle('open');
         header.querySelector('.cal-month-toggle').classList.toggle('open');
+        if (nowOpen) {
+          expandedMonths.add(monthKey);
+        } else {
+          expandedMonths.delete(monthKey);
+        }
+      });
+
+      // Build a real month calendar: 7 columns (Sun-Sat), days placed on their date
+      const [yearStr, monthStr] = monthKey.split('-');
+      const year = parseInt(yearStr, 10);
+      const monthIndex = parseInt(monthStr, 10) - 1; // 0-based
+      const firstWeekday = new Date(year, monthIndex, 1).getDay(); // 0 = Sunday
+      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+      // Map day-of-month -> puzzle for quick lookup
+      const puzzleByDay = {};
+      puzzles.forEach(p => {
+        const day = parseInt(p.date.slice(8, 10), 10);
+        puzzleByDay[day] = p;
+      });
+
+      // Weekday header
+      const weekdays = document.createElement('div');
+      weekdays.className = 'cal-weekdays';
+      ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(w => {
+        const wd = document.createElement('div');
+        wd.className = 'cal-weekday';
+        wd.textContent = w;
+        weekdays.appendChild(wd);
       });
 
       const grid = document.createElement('div');
       grid.className = 'cal-grid';
 
-      puzzles.forEach(p => {
-        const pState = gameState[p.puzzleId];
-        let statusClass = 'not-started';
-        if (pState) {
-          statusClass = pState.status === 'won' ? 'won'
-            : pState.status === 'lost' ? 'lost'
-            : 'in-progress';
+      // Leading blanks so day 1 lands on the correct weekday
+      for (let i = 0; i < firstWeekday; i++) {
+        const blank = document.createElement('div');
+        blank.className = 'cal-day cal-day-blank';
+        grid.appendChild(blank);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const p = puzzleByDay[day];
+        const cell = document.createElement('div');
+
+        if (!p) {
+          // No puzzle on this date - render a dim, empty calendar day
+          cell.className = 'cal-day cal-day-empty';
+          cell.innerHTML = `<span class="cal-day-num">${day}</span>`;
+          grid.appendChild(cell);
+          continue;
         }
 
-        const dateObj = new Date(p.date + 'T12:00:00');
-        const dayStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        const cell = document.createElement('div');
-        cell.className = 'cal-cell';
+        const { statusClass, label } = getAttemptInfo(p.puzzleId);
+        cell.className = `cal-day has-puzzle ${statusClass}`;
         if (currentPuzzle && p.puzzleId === currentPuzzle.puzzleId) {
           cell.classList.add('active');
         }
 
         cell.innerHTML = `
-          <div class="cal-cell-top">
-            <span class="cal-cell-number">#${p.puzzleNumber}</span>
-            <div class="puzzle-nav-status ${statusClass}"></div>
-          </div>
-          <div class="cal-cell-day">${dayStr}</div>
-          ${buildAttemptBoxes(p.puzzleId)}
+          <span class="cal-day-num">${day}</span>
+          <span class="cal-day-attempts">${label}</span>
+          <span class="cal-day-puzzle">#${p.puzzleNumber}</span>
         `;
 
+        cell.title = `Puzzle #${p.puzzleNumber}`;
         cell.addEventListener('click', () => loadPuzzle(p.puzzleId));
         grid.appendChild(cell);
-      });
+      }
 
+      body.appendChild(weekdays);
       body.appendChild(grid);
       group.appendChild(header);
       group.appendChild(body);
@@ -911,6 +1023,10 @@
 
       currentPuzzle = data;
       puzzleNumberEl.textContent = data.puzzleNumber;
+      puzzleDateEl.textContent = data.date ? ` · ${formatPuzzleDate(data.date)}` : '';
+
+      // Selecting a puzzle auto-expands its month (but never collapses others)
+      if (data.date) expandedMonths.add(monthKeyForDate(data.date));
 
       // Store alt sound overrides for this puzzle
       currentAltSounds = {
@@ -982,8 +1098,11 @@
       const data = await res.json();
       nextPuzzleTime = data.nextPuzzleTime;
       todayPuzzleId = data.puzzleId || null;
+      latestIsToday = !!data.isToday;
 
       if (!data.active && data.totalAvailable === 0) {
+        const wrapper = document.getElementById('random-puzzle-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
         showToast(data.message || 'No puzzles available yet.', 5000);
         startCountdown();
         return;

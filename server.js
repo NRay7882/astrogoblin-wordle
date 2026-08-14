@@ -121,7 +121,7 @@ function loadValidWords() {
     });
     console.log(`Loaded ${words.size} valid dictionary words`);
   } else {
-    console.warn('No valid-words.txt found in data/ — only puzzle answers will be accepted as guesses');
+    console.warn('No valid-words.txt found in data/ - only puzzle answers will be accepted as guesses');
   }
 
   // Add all puzzle answers as valid guesses (covers non-dictionary words like VADER)
@@ -218,7 +218,7 @@ app.get('/api/today', (req, res) => {
   const todayDate = available.includes(today) ? today : available[available.length - 1];
   const puzzle = PUZZLES[todayDate];
 
-  // Check for future puzzles — only provide countdown if next puzzle is tomorrow
+  // Check for future puzzles - only provide countdown if next puzzle is tomorrow
   const nextDate = getNextPuzzleDate();
   const hasMorePuzzles = nextDate !== null;
   const nextPuzzleIsTomorrow = hasMorePuzzles && nextDate === getTomorrowEasternDateString();
@@ -229,6 +229,7 @@ app.get('/api/today', (req, res) => {
     puzzleId: puzzle.id,
     clue: puzzle.clue,
     date: puzzle.date,
+    isToday: todayDate === today,
     totalAvailable: available.length,
     totalPuzzles: getTotalPuzzleCount(),
     nextPuzzleTime: nextPuzzleIsTomorrow ? getNextMidnightEasternUTC().toISOString() : null,
@@ -394,7 +395,7 @@ app.get('/api/answer-image/:puzzleId', async (req, res) => {
     }
   }
 
-  // Nothing found — cache the miss too
+  // Nothing found - cache the miss too
   imageCache.set(id, null);
   res.status(404).json({ error: 'No image available' });
 });
@@ -454,7 +455,7 @@ app.get('/api/sounds/:filename', async (req, res) => {
     } catch {}
   }
 
-  // Nothing found — cache the miss
+  // Nothing found - cache the miss
   soundCache.set(filename, null);
   res.status(404).json({ error: 'Sound not found' });
 });

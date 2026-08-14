@@ -2,7 +2,7 @@
 
 An [Astrogoblin](https://www.patreon.com/c/Astrogoblin) community Wordle puzzle game.
 
-Built with Node 26.2.0 & npm 11.16.0
+Built with Node 26.7.0 & npm 11.19.0
 
 
 ## Setup

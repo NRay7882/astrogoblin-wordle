@@ -115,6 +115,23 @@ html, body {
   margin-bottom: 4px;
 }
 
+#puzzle-label-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+#puzzle-label-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+#puzzle-date {
+  white-space: nowrap;
+}
+
 #puzzle-clue-wrapper {
   font-size: 0.95rem;
   color: var(--text);
@@ -184,6 +201,30 @@ html, body {
 
 #depleted-banner strong {
   color: var(--accent);
+}
+
+/* ---- Random Puzzle Button ---- */
+#random-puzzle-wrapper {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.btn-random {
+  background: var(--bg-secondary);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+  padding: 9px 22px;
+  border-radius: 6px;
+}
+
+.btn-random:hover {
+  background: var(--accent);
+  color: var(--bg);
+  opacity: 1;
 }
 
 /* ---- Answer Image ---- */
@@ -734,68 +775,133 @@ html, body {
   color: var(--text-dim);
 }
 
-.cal-grid {
+/* Weekday header row */
+.cal-weekdays {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
-.cal-cell {
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  padding: 8px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background 0.15s, border-color 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.cal-weekday {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Month day grid */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
 
-.cal-cell:hover {
-  background: #2a2a2b;
-}
-
-.cal-cell.active {
-  border-color: var(--accent);
-}
-
-.cal-cell-top {
+.cal-day {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  border: 1px solid transparent;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  justify-content: center;
+  position: relative;
+  padding: 2px;
+  overflow: hidden;
 }
 
-.cal-cell-number {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text);
+/* Padding cells before the 1st of the month */
+.cal-day-blank {
+  background: transparent;
 }
 
-.cal-cell-day {
-  font-size: 0.65rem;
+/* Days in the month with no puzzle */
+.cal-day-empty {
+  background: var(--bg-secondary);
+  opacity: 0.4;
+}
+
+.cal-day-empty .cal-day-num {
   color: var(--text-dim);
 }
 
-/* Attempt boxes row */
-.attempt-boxes {
-  display: flex;
-  gap: 2px;
+/* Playable puzzle days */
+.cal-day.has-puzzle {
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.attempt-box {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--tile-border);
+.cal-day.has-puzzle:hover {
+  transform: translateY(-1px);
+  border-color: var(--text-dim);
 }
 
-.attempt-box.box-gray   { background: #3a3a3c; }
-.attempt-box.box-yellow { background: var(--tile-present); }
-.attempt-box.box-green  { background: var(--tile-correct); }
-.attempt-box.box-red    { background: var(--red); }
+.cal-day.active {
+  border-color: var(--accent);
+}
+
+/* Day-of-month number, small in the top-left corner */
+.cal-day-num {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+/* Attempts / result number, prominent in the center */
+.cal-day-attempts {
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Puzzle number, small along the bottom */
+.cal-day-puzzle {
+  position: absolute;
+  bottom: 3px;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+/* Status color-coding for playable days */
+.cal-day.won {
+  background: var(--tile-correct);
+}
+.cal-day.won .cal-day-num,
+.cal-day.won .cal-day-puzzle {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cal-day.lost {
+  background: var(--red);
+}
+.cal-day.lost .cal-day-num,
+.cal-day.lost .cal-day-puzzle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cal-day.in-progress {
+  background: var(--tile-present);
+}
+.cal-day.in-progress .cal-day-num,
+.cal-day.in-progress .cal-day-puzzle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* not-started keeps the default dark background; no center number shown */
+.cal-day.not-started .cal-day-attempts {
+  color: var(--text-dim);
+}
 
 /* ---- Responsive ---- */
 @media (max-width: 400px) {
