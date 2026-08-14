@@ -841,12 +841,12 @@
 
     const todayPuzzle = allPuzzlesList.find(p => p.puzzleId === todayPuzzleId);
 
-    // Only treat the latest puzzle as a special pinned "today" when its date is
-    // genuinely the current date. Otherwise it is just a normal puzzle that lives
-    // in its own month on the calendar (e.g. the depleted-word-bank case).
-    const calendarPuzzles = latestIsToday
-      ? allPuzzlesList.filter(p => p.puzzleId !== todayPuzzleId)
-      : allPuzzlesList;
+    // The calendar shows every available puzzle grouped into its own month, so it
+    // is driven entirely by which puzzles are configured/available. Adding a new
+    // puzzle (e.g. a future month) makes that month's calendar appear automatically.
+    // Today's puzzle is included here too so its month always renders; the "Back to
+    // Today" banner below is just an extra shortcut when it is genuinely today.
+    const calendarPuzzles = allPuzzlesList;
 
     if (calendarPuzzles.length === 0) {
       puzzlesNav.style.display = 'none';
