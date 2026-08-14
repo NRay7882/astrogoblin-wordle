@@ -975,9 +975,12 @@
         const cell = document.createElement('div');
 
         if (!p) {
-          // No puzzle on this date - render a dim, empty calendar day
+          // No puzzle on this date - render a labeled, non-interactive day
           cell.className = 'cal-day cal-day-empty';
-          cell.innerHTML = `<span class="cal-day-num">${day}</span>`;
+          cell.innerHTML = `
+            <span class="cal-day-num">${day}</span>
+            <span class="cal-day-none">No puzzle</span>
+          `;
           grid.appendChild(cell);
           continue;
         }

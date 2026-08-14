@@ -817,14 +817,25 @@ html, body {
   background: transparent;
 }
 
-/* Days in the month with no puzzle */
+/* Days in the month with no puzzle - clearly distinct from a playable day */
 .cal-day-empty {
-  background: var(--bg-secondary);
-  opacity: 0.4;
+  background: var(--bg);
+  border: 1px dashed var(--tile-border);
 }
 
 .cal-day-empty .cal-day-num {
   color: var(--text-dim);
+  opacity: 0.7;
+}
+
+/* "No puzzle" label centered on empty days */
+.cal-day-none {
+  font-size: 0.5rem;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--text-dim);
+  opacity: 0.8;
+  padding: 0 2px;
 }
 
 /* Playable puzzle days */
